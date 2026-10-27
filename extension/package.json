@@ -1,0 +1,16 @@
+{
+  "name": "listen-together-extension",
+  "version": "1.0.0",
+  "description": "Spicetify extension for Listen Together with Discord RPC",
+  "main": "dist/listen-together.js",
+  "scripts": {
+    "build": "esbuild src/app.tsx --bundle --outfile=dist/listen-together.js --format=iife --target=es2022",
+    "watch": "npm run build -- --watch",
+    "apply": "npm run build && node scripts/install.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "spicetify-creator": "^1.0.17",
+    "typescript": "^5.8.0"
+  }
+}

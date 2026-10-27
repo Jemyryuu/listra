@@ -1,0 +1,13 @@
+{
+  "name": "listen-together-daemon",
+  "version": "1.0.0",
+  "description": "Companion daemon for Listen Together Spicetify and Discord RPC",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "register-protocol": "node scripts/register-protocol.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

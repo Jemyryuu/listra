@@ -1,0 +1,13 @@
+{
+  "name": "listen-together-plugin",
+  "version": "1.0.0",
+  "description": "Listen Together Spicetify Plugin & Discord Rich Presence Integration",
+  "scripts": {
+    "build:extension": "npm --prefix extension run build",
+    "apply:extension": "npm --prefix extension run apply",
+    "start:daemon": "npm --prefix daemon start",
+    "register:protocol": "npm --prefix daemon run register-protocol",
+    "deploy:web": "wrangler pages deploy web --project-name=listen-together",
+    "deploy:signaling": "npm --prefix signaling run deploy"
+  }
+}

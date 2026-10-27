@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+*.exe
+
+# OS & Logs
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Wrangler / Cloudflare
+.wrangler/
