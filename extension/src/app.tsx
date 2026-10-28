@@ -29,12 +29,20 @@ class ListenTogetherApp {
 
   public init(): void {
     console.log('[ListenTogether] Initializing extension...');
-    this.daemon.connect();
-    this.ui.register();
+    try {
+      this.daemon.connect();
+    } catch (e) {
+      console.warn('[ListenTogether] Daemon connection deferred:', e);
+    }
+    try {
+      this.ui.register();
+    } catch (e) {
+      console.warn('[ListenTogether] UI registration deferred:', e);
+    }
   }
 
   private generateRoomId(): string {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous 0/O/1/I
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let id = '';
     for (let i = 0; i < 6; i++) {
       id += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -43,90 +51,102 @@ class ListenTogetherApp {
   }
 
   public startHost(): void {
-    this.leave();
+    try {
+      this.leave();
 
-    const roomId = this.generateRoomId();
-    console.log(`[ListenTogether] Starting host session: ${roomId}`);
+      const roomId = this.generateRoomId();
+      console.log(`[ListenTogether] Starting host session: ${roomId}`);
 
-    this.transport = new PeerTransport(true, {
-      onClockMessage: (msg) => {
-        // Host responds to listener clock pings if any
-      },
-      onControlMessage: (msg) => {
-        // Host handles member join or auxiliary actions
-      },
-      onConnected: () => {
-        console.log('[ListenTogether] Peer connected to host!');
-        Spicetify.showNotification('Friend joined your Listen Together session!');
-        this.hostEngine?.sendHeartbeat();
-      },
-      onDisconnected: () => {
-        console.log('[ListenTogether] Peer disconnected from host.');
-      },
-    });
+      this.transport = new PeerTransport(true, {
+        onClockMessage: () => {},
+        onControlMessage: () => {},
+        onConnected: () => {
+          console.log('[ListenTogether] Peer connected to host!');
+          Spicetify.showNotification('Friend joined your Listen Together session!');
+          this.hostEngine?.sendHeartbeat();
+        },
+        onDisconnected: () => {
+          console.log('[ListenTogether] Peer disconnected from host.');
+        },
+      });
 
-    this.transport.initialize([
-      { urls: 'stun:stun.cloudflare.com:3478' },
-      { urls: 'stun:stun.l.google.com:19302' },
-    ]);
+      this.transport.initialize([
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.l.google.com:19302' },
+      ]);
 
-    this.hostEngine = new HostEngine(roomId, this.clock, this.transport, this.daemon);
-    this.hostEngine.start();
-    this.ui.setSessionActive(roomId, true);
+      this.hostEngine = new HostEngine(roomId, this.clock, this.transport, this.daemon);
+      this.hostEngine.start();
+      this.ui.setSessionActive(roomId, true);
+    } catch (err) {
+      console.error('[ListenTogether] Error starting host:', err);
+    }
   }
 
   public joinRoom(roomId: string): void {
-    this.leave();
+    try {
+      this.leave();
 
-    console.log(`[ListenTogether] Joining room: ${roomId}`);
+      console.log(`[ListenTogether] Joining room: ${roomId}`);
 
-    this.transport = new PeerTransport(false, {
-      onClockMessage: (msg) => {
-        this.listenerEngine?.handleClockMessage(msg);
-      },
-      onControlMessage: (msg) => {
-        this.listenerEngine?.handleControlMessage(msg);
-      },
-      onConnected: () => {
-        console.log('[ListenTogether] Successfully connected to host!');
-        Spicetify.showNotification('Connected! Synchronizing playback...');
-      },
-      onDisconnected: () => {
-        console.log('[ListenTogether] Disconnected from host.');
-        this.leave();
-      },
-    });
+      this.transport = new PeerTransport(false, {
+        onClockMessage: (msg) => {
+          this.listenerEngine?.handleClockMessage(msg);
+        },
+        onControlMessage: (msg) => {
+          this.listenerEngine?.handleControlMessage(msg);
+        },
+        onConnected: () => {
+          console.log('[ListenTogether] Successfully connected to host!');
+          Spicetify.showNotification('Connected! Synchronizing playback...');
+        },
+        onDisconnected: () => {
+          console.log('[ListenTogether] Disconnected from host.');
+          this.leave();
+        },
+      });
 
-    this.transport.initialize([
-      { urls: 'stun:stun.cloudflare.com:3478' },
-      { urls: 'stun:stun.l.google.com:19302' },
-    ]);
+      this.transport.initialize([
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.l.google.com:19302' },
+      ]);
 
-    this.listenerEngine = new ListenerEngine(this.clock, this.transport);
-    this.ui.setSessionActive(roomId, false);
+      this.listenerEngine = new ListenerEngine(this.clock, this.transport);
+      this.ui.setSessionActive(roomId, false);
+    } catch (err) {
+      console.error('[ListenTogether] Error joining room:', err);
+    }
   }
 
   public leave(): void {
-    if (this.hostEngine) {
-      this.hostEngine.stop();
-      this.hostEngine = null;
+    try {
+      if (this.hostEngine) {
+        this.hostEngine.stop();
+        this.hostEngine = null;
+      }
+      if (this.transport) {
+        this.transport.close();
+        this.transport = null;
+      }
+      this.listenerEngine = null;
+      this.ui.setSessionInactive();
+    } catch (err) {
+      console.error('[ListenTogether] Error leaving session:', err);
     }
-    if (this.transport) {
-      this.transport.close();
-      this.transport = null;
-    }
-    this.listenerEngine = null;
-    this.ui.setSessionInactive();
   }
 }
 
-// Spicetify extension entry point
+// Spicetify extension entry point with safety delay and existence checks
 (function initWhenReady() {
-  if (!Spicetify.Playbar || !Spicetify.Player) {
-    setTimeout(initWhenReady, 250);
+  if (!window.Spicetify || !Spicetify.Player || (!Spicetify.Topbar && !Spicetify.Playbar)) {
+    setTimeout(initWhenReady, 300);
     return;
   }
 
-  const app = new ListenTogetherApp();
-  app.init();
+  try {
+    const app = new ListenTogetherApp();
+    app.init();
+  } catch (err) {
+    console.error('[ListenTogether] Uncaught init error:', err);
+  }
 })();
