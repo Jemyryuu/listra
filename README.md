@@ -43,7 +43,24 @@ listen-together-plugin/
 
 ---
 
-## 🚀 Quick Start (Development & Local Testing)
+## 🚀 Quick Start
+
+### For Friends (1-Line Easy Install)
+Your friends do **not** need to clone this repo or install Node.js. They just open PowerShell and paste this one command:
+
+```powershell
+irm https://raw.githubusercontent.com/Jemyryuu/listra/main/install.ps1 | iex
+```
+
+This will automatically:
+1. Install Spicetify CLI (if they don't have it).
+2. Download the pre-compiled `listen-together.js` directly into their Spicetify directory.
+3. Register the Windows protocol handler for Discord links.
+4. Apply the extension to their Spotify.
+
+---
+
+### For Developers & Hosts (Running the Daemon)
 
 ### 1. Register the Windows Protocol Handler
 Registers the custom `listentogether://` scheme in Windows `HKCU` registry (no administrator privileges required):
