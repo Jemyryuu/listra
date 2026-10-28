@@ -13,9 +13,9 @@ Listra menyinkronkan pemutaran lagu di Spotify secara *real-time* antar-teman. S
 - Berfungsi untuk akun Spotify gratis maupun Premium di desktop karena kontrol playback berjalan langsung di dalam aplikasi client.
 - Musik tetap berjalan saat sedang di voice call Discord tanpa terhenti otomatis setelah 30 detik.
 
-## Panduan Cepat
+## Instalasi
 
-### Untuk Teman / Pendengar (Pemasangan Cepat Satu Baris)
+### Untuk Teman / Pendengar
 Teman yang hanya ingin ikut mendengarkan tidak memerlukan Git, Node.js, atau build tools. Jalankan perintah ini di Windows PowerShell:
 
 ```powershell
