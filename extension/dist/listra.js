@@ -138,6 +138,12 @@
     static onPlayPause(callback) {
       Spicetify.Player.addEventListener("onplaypause", callback);
     }
+    static removeEventListener(event, callback) {
+      try {
+        Spicetify.Player.removeEventListener(event, callback);
+      } catch (e) {
+      }
+    }
   };
 
   // ../shared/protocol.ts
@@ -154,6 +160,8 @@
     heartbeatTimer = null;
     clockPingTimer = null;
     lastTrack = null;
+    onSongChangeHandler = () => this.handleTrackChange();
+    onPlayPauseHandler = () => this.handlePlayPauseChange();
     constructor(roomId, clock, transport, daemon) {
       this.roomId = roomId;
       this.clock = clock;
@@ -163,8 +171,8 @@
     }
     start() {
       this.broadcastCurrentTrack();
-      PlayerAdapter.onSongChange(() => this.handleTrackChange());
-      PlayerAdapter.onPlayPause(() => this.handlePlayPauseChange());
+      PlayerAdapter.onSongChange(this.onSongChangeHandler);
+      PlayerAdapter.onPlayPause(this.onPlayPauseHandler);
       this.heartbeatTimer = window.setInterval(() => {
         this.sendHeartbeat();
       }, 2500);
@@ -247,6 +255,8 @@
     stop() {
       if (this.heartbeatTimer !== null) clearInterval(this.heartbeatTimer);
       if (this.clockPingTimer !== null) clearInterval(this.clockPingTimer);
+      PlayerAdapter.removeEventListener("songchange", this.onSongChangeHandler);
+      PlayerAdapter.removeEventListener("onplaypause", this.onPlayPauseHandler);
       this.daemon.clearPresence();
     }
   };
@@ -383,17 +393,30 @@
     controlChannel = null;
     callbacks;
     isHost;
-    constructor(isHost, callbacks) {
+    signalingWs = null;
+    pendingCandidates = [];
+    roomId = null;
+    signalingUrl;
+    constructor(isHost, callbacks, signalingUrl) {
       this.isHost = isHost;
       this.callbacks = callbacks;
+      this.signalingUrl = signalingUrl || window.LISTRA_SIGNALING_URL || "wss://listra-signaling.pages.dev";
     }
-    initialize(iceServers) {
-      this.pc = new RTCPeerConnection({
-        iceServers
-      });
+    initialize(roomId, iceServers) {
+      this.roomId = roomId;
+      this.pc = new RTCPeerConnection({ iceServers });
       this.pc.oniceconnectionstatechange = () => {
-        if (this.pc?.iceConnectionState === "disconnected" || this.pc?.iceConnectionState === "failed" || this.pc?.iceConnectionState === "closed") {
+        const state = this.pc?.iceConnectionState;
+        if (state === "disconnected" || state === "failed" || state === "closed") {
           this.callbacks.onDisconnected();
+        }
+      };
+      this.pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          this.sendSignaling({
+            type: "candidate",
+            candidate: event.candidate.toJSON()
+          });
         }
       };
       if (this.isHost) {
@@ -416,6 +439,89 @@
             this.setupControlChannel(this.controlChannel);
           }
         };
+      }
+      this.connectSignaling(roomId);
+    }
+    connectSignaling(roomId) {
+      const wsUrl = `${this.signalingUrl.replace(/\/+$/, "")}/room/${roomId}`;
+      try {
+        this.signalingWs = new WebSocket(wsUrl);
+        this.signalingWs.onopen = () => {
+          console.log(`[Listra] Connected to signaling for room ${roomId}`);
+          if (!this.isHost) {
+            this.sendSignaling({ type: "join" });
+          }
+        };
+        this.signalingWs.onmessage = async (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            await this.handleSignalingMessage(msg);
+          } catch (err) {
+            console.warn("[Listra] Error handling signaling message:", err);
+          }
+        };
+        this.signalingWs.onerror = (err) => {
+          console.warn("[Listra] Signaling WebSocket error:", err);
+        };
+        this.signalingWs.onclose = () => {
+          console.log("[Listra] Signaling WebSocket closed.");
+        };
+      } catch (err) {
+        console.warn("[Listra] Failed to connect signaling:", err);
+      }
+    }
+    sendSignaling(msg) {
+      if (this.signalingWs && this.signalingWs.readyState === WebSocket.OPEN) {
+        this.signalingWs.send(JSON.stringify(msg));
+      }
+    }
+    async handleSignalingMessage(msg) {
+      if (!this.pc) return;
+      if (msg.type === "join" && this.isHost) {
+        console.log("[Listra] Peer joined signaling room, creating WebRTC offer...");
+        const offer = await this.pc.createOffer();
+        await this.pc.setLocalDescription(offer);
+        const sdpData = this.pc.localDescription?.toJSON ? this.pc.localDescription.toJSON() : { type: this.pc.localDescription?.type, sdp: this.pc.localDescription?.sdp };
+        this.sendSignaling({
+          type: "offer",
+          sdp: sdpData
+        });
+      } else if (msg.type === "offer" && !this.isHost) {
+        console.log("[Listra] Received WebRTC offer, creating answer...");
+        await this.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        await this.drainPendingCandidates();
+        const answer = await this.pc.createAnswer();
+        await this.pc.setLocalDescription(answer);
+        const sdpData = this.pc.localDescription?.toJSON ? this.pc.localDescription.toJSON() : { type: this.pc.localDescription?.type, sdp: this.pc.localDescription?.sdp };
+        this.sendSignaling({
+          type: "answer",
+          sdp: sdpData
+        });
+      } else if (msg.type === "answer" && this.isHost) {
+        console.log("[Listra] Received WebRTC answer from peer.");
+        await this.pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        await this.drainPendingCandidates();
+      } else if (msg.type === "candidate") {
+        if (this.pc.remoteDescription) {
+          try {
+            await this.pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+          } catch (e) {
+          }
+        } else {
+          this.pendingCandidates.push(msg.candidate);
+        }
+      }
+    }
+    async drainPendingCandidates() {
+      if (!this.pc || !this.pc.remoteDescription) return;
+      while (this.pendingCandidates.length > 0) {
+        const cand = this.pendingCandidates.shift();
+        if (cand) {
+          try {
+            await this.pc.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (e) {
+          }
+        }
       }
     }
     setupClockChannel(ch) {
@@ -456,12 +562,21 @@
       return this.pc;
     }
     close() {
+      if (this.signalingWs) {
+        try {
+          this.signalingWs.close();
+        } catch (e) {
+        }
+        this.signalingWs = null;
+      }
+      this.pendingCandidates = [];
       this.clockChannel?.close();
       this.controlChannel?.close();
       this.pc?.close();
       this.clockChannel = null;
       this.controlChannel = null;
       this.pc = null;
+      this.roomId = null;
     }
   };
 
@@ -572,9 +687,13 @@
     }
     register() {
       const iconSvg = `
+
       <svg role="img" height="16" width="16" viewBox="0 0 16 16" fill="currentColor">
+
         <path d="M8 1.5a6.5 6.5 0 0 0-6.5 6.5v4.5A2.5 2.5 0 0 0 4 15h1a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1H2.5V8a5.5 5.5 0 1 1 11 0v1H12a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h1a2.5 2.5 0 0 0 2.5-2.5V8A6.5 6.5 0 0 0 8 1.5z"/>
+
       </svg>
+
     `;
       try {
         if (Spicetify.Topbar && Spicetify.Topbar.Button) {
@@ -610,7 +729,9 @@
     setSessionActive(roomId, isHost) {
       this.currentRoomId = roomId;
       this.isHost = isHost;
-      this.isLaunchingDaemon = false;
+      if (this.actions.isDaemonConnected()) {
+        this.isLaunchingDaemon = false;
+      }
       try {
         if (this.button) {
           this.button.active = true;
@@ -665,75 +786,163 @@ Leave session?`)) {
       const container = document.createElement("div");
       container.id = "lt-modal-container";
       container.style.cssText = `
+
       display: flex;
+
       flex-direction: column;
+
       gap: 16px;
+
       color: #fff;
+
       font-family: var(--font-family, sans-serif);
+
       padding: 8px 4px;
+
     `;
       const styleEl = document.createElement("style");
       styleEl.textContent = `
+
       #lt-modal-container button {
+
         cursor: pointer;
+
         user-select: none;
+
         transition: transform 0.08s ease, filter 0.15s ease, background-color 0.2s ease;
+
       }
+
       #lt-modal-container button:hover:not(:disabled) {
+
         filter: brightness(1.1);
+
       }
+
       #lt-modal-container button:active:not(:disabled) {
+
         transform: scale(0.97) !important;
+
         filter: brightness(0.95);
+
       }
+
       #lt-join-input::placeholder {
+
         color: #777777;
+
         font-weight: 500;
+
         letter-spacing: 1px;
+
         font-size: 14px;
+
         text-transform: none;
+
       }
+
     `;
       container.appendChild(styleEl);
       if (this.currentRoomId) {
         const daemonConnected = this.actions.isDaemonConnected();
-        const hostStatusText = daemonConnected ? '<span style="color: #1db954;">\u25CF</span> <b>Discord RPC is active.</b> Friends can click <i>"Listra"</i> on your Discord profile to join automatically.' : `
+        let hostStatusText = "";
+        if (daemonConnected) {
+          hostStatusText = '<span style="color: #1db954;">\u25CF</span> <b>Discord RPC is active.</b> Friends can click <i>"Listra"</i> on your Discord profile to join automatically.';
+        } else if (this.isLaunchingDaemon) {
+          hostStatusText = `
+
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #ffa42b; background: rgba(255, 164, 43, 0.1); border: 1px solid rgba(255, 164, 43, 0.25); padding: 8px 12px; border-radius: 6px; line-height: 1.4;">
-          <div><span style="color: #e91429;">\u25CF</span> <b>Companion daemon offline.</b> Discord RPC is not broadcasting.</div>
-          <button id="lt-reconnect-daemon-btn" style="background: #3e3e3e; border: none; color: #fff; padding: 6px 10px; border-radius: 12px; font-weight: 600; font-size: 11px; cursor: pointer;">
-            Launch Daemon
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ffa42b;"></span>
+
+            <span><b>Starting companion daemon...</b> Discord RPC connecting...</span>
+
+          </div>
+
+          <button disabled style="background: #2a2a2a; border: 1px solid #444; color: #888; padding: 6px 12px; border-radius: 12px; font-weight: 600; font-size: 11px; cursor: wait;">
+
+            Launching...
+
           </button>
+
         </div>
+
         `;
+        } else {
+          hostStatusText = `
+
+        <div style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #ffa42b; background: rgba(255, 164, 43, 0.1); border: 1px solid rgba(255, 164, 43, 0.25); padding: 8px 12px; border-radius: 6px; line-height: 1.4;">
+
+          <div><span style="color: #e91429;">\u25CF</span> <b>Companion daemon offline.</b> Discord RPC is not broadcasting.</div>
+
+          <button id="lt-reconnect-daemon-btn" style="background: #3e3e3e; border: none; color: #fff; padding: 6px 10px; border-radius: 12px; font-weight: 600; font-size: 11px; cursor: pointer;">
+
+            Launch Daemon
+
+          </button>
+
+        </div>
+
+        `;
+        }
         const sessionContent = document.createElement("div");
         sessionContent.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
         sessionContent.innerHTML = `
+
         <div style="display: flex; align-items: center; justify-content: space-between; background: #282828; padding: 12px 16px; border-radius: 8px;">
+
           <div>
+
             <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; color: ${this.isHost ? "#1db954" : "#3d91f4"}; font-weight: bold;">
+
               \u25CF ${this.isHost ? "Hosting Party" : "Listening In Sync"}
+
             </div>
+
             <div style="font-size: 24px; font-weight: 800; letter-spacing: 3px; font-family: monospace; margin-top: 4px;">
+
               ${this.currentRoomId}
+
             </div>
+
           </div>
+
           <button id="lt-copy-btn" style="background: #3e3e3e; border: none; color: #fff; padding: 8px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; cursor: pointer;">
+
             Copy Code
+
           </button>
+
         </div>
+
+
 
         <div style="font-size: 13px; color: #b3b3b3; line-height: 1.5;">
+
           ${this.isHost ? hostStatusText : "You are synchronized to the host. Any track changes or pauses will sync automatically."}
+
         </div>
 
+
+
         <div style="display: flex; gap: 10px; margin-top: 8px;">
+
           <button id="lt-copy-link-btn" style="flex: 1; background: #282828; border: 1px solid #3e3e3e; color: #fff; padding: 12px; border-radius: 24px; font-weight: 600; font-size: 14px; cursor: pointer;">
+
             Copy Join Link
+
           </button>
+
           <button id="lt-leave-btn" style="flex: 1; background: #e91429; border: none; color: #fff; padding: 12px; border-radius: 24px; font-weight: 700; font-size: 14px; cursor: pointer;">
+
             Leave Party
+
           </button>
+
         </div>
+
       `;
         container.appendChild(sessionContent);
         const reconnectBtn = container.querySelector("#lt-reconnect-daemon-btn");
@@ -781,83 +990,153 @@ Leave session?`)) {
         let hostSection = "";
         if (daemonConnected) {
           hostSection = `
+
           <div style="background: #242424; padding: 16px; border-radius: 8px;">
+
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+
               <div style="font-weight: 700; font-size: 15px;">Host a Party</div>
+
               <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #1db954;">
+
                 <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #1db954;"></span>
+
                 Daemon active
+
               </div>
+
             </div>
+
             <div style="font-size: 12px; color: #a7a7a7; margin-bottom: 12px;">
+
               Creates a room code and sets your Discord status with a clickable join button.
+
             </div>
+
             <button id="lt-host-btn" style="width: 100%; background: #1db954; color: #000; border: none; padding: 12px; border-radius: 24px; font-weight: 700; font-size: 14px; cursor: pointer;">
+
               Start Hosting Party
+
             </button>
+
           </div>
+
         `;
         } else if (this.isLaunchingDaemon) {
           hostSection = `
+
           <div style="background: #242424; padding: 16px; border-radius: 8px;">
+
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+
               <div style="font-weight: 700; font-size: 15px;">Host a Party</div>
+
               <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ffa42b;">
+
                 <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ffa42b;"></span>
+
                 Starting daemon...
+
               </div>
+
             </div>
+
             <div style="font-size: 12px; color: #a7a7a7; margin-bottom: 12px;">
+
               Launching background companion daemon to connect Discord Rich Presence...
+
             </div>
+
             <button id="lt-host-btn" disabled style="width: 100%; background: #333333; color: #1db954; border: 1px solid #1db954; padding: 12px; border-radius: 24px; font-weight: 700; font-size: 14px; cursor: wait;">
+
               Starting Daemon & Hosting...
+
             </button>
+
           </div>
+
         `;
         } else {
           hostSection = `
+
           <div style="background: #242424; padding: 16px; border-radius: 8px;">
+
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+
               <div style="font-weight: 700; font-size: 15px;">Host a Party</div>
+
               <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #888;">
+
                 <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #888;"></span>
+
                 Daemon standby
+
               </div>
+
             </div>
+
             <div style="font-size: 12px; color: #a7a7a7; margin-bottom: 12px;">
+
               Creates a room code and sets your Discord status with a clickable join button.
+
             </div>
+
             <button id="lt-host-btn" style="width: 100%; background: #1db954; color: #000; border: none; padding: 12px; border-radius: 24px; font-weight: 700; font-size: 14px; cursor: pointer;">
+
               Start Hosting Party
+
             </button>
+
           </div>
+
         `;
         }
         const mainContent = document.createElement("div");
         mainContent.style.cssText = "display: flex; flex-direction: column; gap: 16px;";
         mainContent.innerHTML = `
+
         <div style="color: #b3b3b3; font-size: 14px; line-height: 1.5;">
+
           Spicetify extension to synchronize Spotify playback in real time with friends via WebRTC and Discord Rich Presence.
+
         </div>
+
+
 
         ${hostSection}
 
+
+
         <div style="display: flex; align-items: center; text-align: center; color: #535353; font-size: 12px; font-weight: bold; margin: 4px 0;">
+
           <div style="flex: 1; height: 1px; background: #333;"></div>
+
           <span style="padding: 0 10px;">OR JOIN A FRIEND</span>
+
           <div style="flex: 1; height: 1px; background: #333;"></div>
+
         </div>
 
+
+
         <div style="background: #242424; padding: 16px; border-radius: 8px;">
+
           <div style="font-weight: 700; font-size: 15px; margin-bottom: 8px;">Enter 6-Letter Room Code</div>
+
           <div style="display: flex; gap: 8px;">
+
             <input id="lt-join-input" type="text" maxlength="6" placeholder="e.g. ABC123" autocomplete="off" spellcheck="false" style="flex: 1; background: #121212; border: 1px solid #3e3e3e; color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 16px; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; text-align: center; outline: none; transition: border-color 0.2s;" />
+
             <button id="lt-join-btn" style="background: #fff; color: #000; border: none; padding: 0 20px; border-radius: 24px; font-weight: 700; font-size: 14px; cursor: pointer;">
+
               Join
+
             </button>
+
           </div>
+
         </div>
+
       `;
         container.appendChild(mainContent);
         const hostBtn = container.querySelector("#lt-host-btn");
@@ -998,6 +1277,16 @@ Leave session?`)) {
       Spicetify.showNotification("[Listra] Starting companion daemon in background...");
       this.ui.setDaemonLaunching(true);
       try {
+        const iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = "listra://start";
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+          try {
+            iframe.remove();
+          } catch (e) {
+          }
+        }, 2e3);
         const a = document.createElement("a");
         a.href = "listra://start";
         a.style.display = "none";
@@ -1018,8 +1307,9 @@ Leave session?`)) {
         if (this.isAutoLaunchingDaemon && !this.daemon.hasConnection()) {
           this.isAutoLaunchingDaemon = false;
           this.ui.setDaemonLaunching(false);
+          Spicetify.showNotification('[Listra] Companion daemon did not respond. Run "listra" in terminal to start it manually.', true);
         }
-      }, 6e3);
+      }, 7e3);
     }
     startHost() {
       try {
@@ -1040,7 +1330,7 @@ Leave session?`)) {
             console.log("[Listra] Peer disconnected from host.");
           }
         });
-        this.transport.initialize([
+        this.transport.initialize(roomId, [
           { urls: "stun:stun.cloudflare.com:3478" },
           { urls: "stun:stun.l.google.com:19302" }
         ]);
@@ -1075,7 +1365,7 @@ Leave session?`)) {
             this.leave();
           }
         });
-        this.transport.initialize([
+        this.transport.initialize(roomId, [
           { urls: "stun:stun.cloudflare.com:3478" },
           { urls: "stun:stun.l.google.com:19302" }
         ]);

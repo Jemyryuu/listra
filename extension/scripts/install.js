@@ -20,6 +20,18 @@ if (!fs.existsSync(srcBundle)) {
 fs.copyFileSync(srcBundle, destBundle);
 console.log(`Copied bundle to ${destBundle}`);
 
+// Also copy to active Spotify xpui extensions directory if present
+const appData = process.env.APPDATA;
+if (appData) {
+  const liveXpuiExtension = path.join(appData, 'Spotify', 'Apps', 'xpui', 'extensions', 'listra.js');
+  if (fs.existsSync(path.dirname(liveXpuiExtension))) {
+    try {
+      fs.copyFileSync(srcBundle, liveXpuiExtension);
+      console.log(`Updated live Spotify extension at ${liveXpuiExtension}`);
+    } catch (e) {}
+  }
+}
+
 // Delete legacy listen-together.js if present to ensure only Listra runs
 const legacyDestBundle = path.join(spicetifyExtensionsDir, 'listen-together.js');
 if (fs.existsSync(legacyDestBundle)) {

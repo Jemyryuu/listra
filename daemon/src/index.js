@@ -11,29 +11,43 @@ if (arg) {
   arg = arg.replace(/^"+|"+$/g, '').trim();
   if (arg.startsWith('listra://') || arg.startsWith('listentogether://')) {
     try {
-      const raw = arg.replace(/^listra:\/\/|^listentogether:\/\//, '').replace(/^\/+/, '');
+      const raw = arg
+        .replace(/^listra:\/\/|^listentogether:\/\//, '')
+        .replace(/^\/+/, '')
+        .replace(/\/+$/, '');
+
       const cleanArg = raw.split('/')[0]?.toLowerCase()?.trim();
       if (cleanArg === 'start' || cleanArg === 'daemon') {
         console.log('[Listra Daemon] Received launch command via protocol.');
       } else {
-      const roomId = raw.split('/').pop()?.toUpperCase()?.trim();
-      if (roomId && /^[A-Z0-9]{6}$/.test(roomId)) {
-        console.log(`Forwarding join request for room: ${roomId}`);
-        const req = http.get(`http://127.0.0.1:${PORT}/join?room=${roomId}`, (res) => {
-          process.exit(0);
-        });
-        req.on('error', () => {
-          console.error('Daemon not running or request failed.');
-          process.exit(1);
-        });
-        setTimeout(() => process.exit(0), 1000);
-        return;
+        let roomId = null;
+        if (raw.includes('?')) {
+          try {
+            const urlObj = new URL(arg.startsWith('http') ? arg : `http://dummy/${raw}`);
+            roomId = urlObj.searchParams.get('room')?.toUpperCase()?.trim();
+          } catch (e) {}
+        }
+        if (!roomId) {
+          roomId = raw.split('/').pop()?.toUpperCase()?.trim();
+        }
+
+        if (roomId && /^[A-Z0-9]{6}$/.test(roomId)) {
+          console.log(`Forwarding join request for room: ${roomId}`);
+          const req = http.get(`http://127.0.0.1:${PORT}/join?room=${roomId}`, () => {
+            process.exit(0);
+          });
+          req.on('error', () => {
+            console.error('Daemon not running or request failed.');
+            process.exit(1);
+          });
+          setTimeout(() => process.exit(0), 1000);
+          return;
+        }
       }
+    } catch (err) {
+      process.exit(1);
     }
-  } catch (err) {
-    process.exit(1);
   }
-}
 }
 
 const discord = new DiscordRpcClient(DISCORD_CLIENT_ID, JOIN_BASE_URL);
@@ -45,6 +59,7 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
+  res.setHeader('Access-Control-Allow-Private-Network', 'true');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -102,6 +117,8 @@ wss.on('connection', (ws) => {
           trackName: msg.trackName,
           artist: msg.artist,
           albumArtUrl: msg.albumArtUrl,
+          durationMs: msg.durationMs,
+          progressMs: msg.progressMs,
           isPlaying: msg.isPlaying,
         });
       } else if (msg.type === 'presence.clear') {

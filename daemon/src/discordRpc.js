@@ -10,10 +10,18 @@ class DiscordRpcClient {
     this.pipeIndex = 0;
   }
 
+  getPipePath(index) {
+    if (process.platform === 'win32') {
+      return `\\\\.\\pipe\\discord-ipc-${index}`;
+    }
+    const prefix = process.env.XDG_RUNTIME_DIR || process.env.TMPDIR || process.env.TMP || '/tmp';
+    return `${prefix.replace(/\/+$/, '')}/discord-ipc-${index}`;
+  }
+
   connect() {
     if (this.client) return;
 
-    const pipePath = `\\\\.\\pipe\\discord-ipc-${this.pipeIndex}`;
+    const pipePath = this.getPipePath(this.pipeIndex);
     this.client = net.connect(pipePath);
 
     this.client.on('connect', () => {
@@ -41,7 +49,9 @@ class DiscordRpcClient {
       this.scheduleReconnect();
     });
 
-    this.client.on('error', (err) => {
+    this.client.on('error', () => {
+      // Try next pipe index in case Discord runs on pipe 1-9 (e.g. Canary, PTB)
+      this.pipeIndex = (this.pipeIndex + 1) % 10;
       this.cleanup();
       this.scheduleReconnect();
     });
@@ -61,17 +71,27 @@ class DiscordRpcClient {
     this.client.write(this.encode(0, { v: 1, client_id: this.clientId }));
   }
 
-  setActivity({ roomId, trackName, artist, albumArtUrl, isPlaying }) {
+  setActivity({ roomId, trackName, artist, albumArtUrl, durationMs, progressMs, isPlaying }) {
     if (!this.isReady || !this.client) return;
 
     const joinUrl = `${this.joinBaseUrl}?room=${encodeURIComponent(roomId)}`;
 
+    let timestamps;
+    if (isPlaying && durationMs && durationMs > 0) {
+      const start = Math.max(0, Math.floor((Date.now() - (progressMs || 0)) / 1000));
+      const end = start + Math.floor(durationMs / 1000);
+      timestamps = { start, end };
+    }
+
+    const safeTitle = (trackName && trackName.trim()) ? trackName.trim().slice(0, 128) : 'Listening to Spotify';
+    const safeArtist = (artist && artist.trim()) ? `by ${artist.trim().slice(0, 96)} · Listra` : 'Listra Party';
+
     const activity = {
-      details: trackName,
-      state: `by ${artist} · Listra`,
+      details: safeTitle,
+      state: safeArtist,
       assets: {
         large_image: albumArtUrl || 'spotify',
-        large_text: trackName,
+        large_text: safeTitle,
       },
       party: {
         id: roomId,
@@ -80,6 +100,7 @@ class DiscordRpcClient {
       buttons: [
         { label: 'Listra', url: joinUrl },
       ],
+      timestamps,
     };
 
     const payload = {
@@ -121,7 +142,7 @@ class DiscordRpcClient {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
-    }, 5000);
+    }, 4000);
   }
 }
 

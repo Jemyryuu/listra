@@ -15,6 +15,8 @@ export class HostEngine {
   private heartbeatTimer: number | null = null;
   private clockPingTimer: number | null = null;
   private lastTrack: CurrentTrackInfo | null = null;
+  private onSongChangeHandler = () => this.handleTrackChange();
+  private onPlayPauseHandler = () => this.handlePlayPauseChange();
 
   constructor(
     roomId: string,
@@ -32,8 +34,8 @@ export class HostEngine {
   public start(): void {
     this.broadcastCurrentTrack();
 
-    PlayerAdapter.onSongChange(() => this.handleTrackChange());
-    PlayerAdapter.onPlayPause(() => this.handlePlayPauseChange());
+    PlayerAdapter.onSongChange(this.onSongChangeHandler);
+    PlayerAdapter.onPlayPause(this.onPlayPauseHandler);
 
     this.heartbeatTimer = window.setInterval(() => {
       this.sendHeartbeat();
@@ -131,6 +133,8 @@ export class HostEngine {
   public stop(): void {
     if (this.heartbeatTimer !== null) clearInterval(this.heartbeatTimer);
     if (this.clockPingTimer !== null) clearInterval(this.clockPingTimer);
+    PlayerAdapter.removeEventListener('songchange', this.onSongChangeHandler);
+    PlayerAdapter.removeEventListener('onplaypause', this.onPlayPauseHandler);
     this.daemon.clearPresence();
   }
 }

@@ -73,19 +73,21 @@ Write-Host "[2/4] Downloading Listra companion daemon..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri $daemonBundleUrl -OutFile $targetDaemonFile -UseBasicParsing
 
 # 5. Create launcher scripts
+$nodeExePath = (Get-Command node).Source
 $vbsContent = @"
 Set shell = CreateObject("WScript.Shell")
 args = ""
 If WScript.Arguments.Count > 0 Then
   args = """" & WScript.Arguments(0) & """"
 End If
+nodeExe = "$nodeExePath"
 target = "$targetDaemonFile"
-cmd = "cmd.exe /c node """ & target & """ " & args
-shell.Run cmd, 0, False
+cmd = """" & nodeExe & """ """ & target & """ " & args
+shell.Run cmd, 0, True
 "@
 Set-Content -Path "$listraDir\launch.vbs" -Value $vbsContent -Encoding ASCII
 
-$cmdContent = "@echo off`r`nnode `"$targetDaemonFile`" %*`r`n"
+$cmdContent = "@echo off`r`n`"$nodeExePath`" `"$targetDaemonFile`" %*`r`n"
 Set-Content -Path "$listraDir\listra.cmd" -Value $cmdContent -Encoding ASCII
 
 # 6. Add $listraDir to user PATH if not present
@@ -95,19 +97,36 @@ if ($userPath -notmatch [regex]::Escape($listraDir)) {
     $env:PATH += ";$listraDir"
 }
 
-# 7. Register listra:// and legacy listentogether:// protocol handlers
-Write-Host "[3/4] Registering Windows protocol handler..." -ForegroundColor Cyan
-$launcherCmd = "wscript.exe `"$listraDir\launch.vbs`" `"%1`""
+# 7. Register listra:// protocol and Windows startup entry
+Write-Host "[3/4] Registering Windows protocol handler and background service..." -ForegroundColor Cyan
+$escapedVbsPath = "$listraDir\launch.vbs" -replace '\\', '\\'
+$regFilePath = "$listraDir\register.reg"
+$regContent = @"
+Windows Registry Editor Version 5.00
 
-foreach ($proto in @("listra", "listentogether")) {
-    $regKey = "HKCU:\Software\Classes\$proto"
-    New-Item -Path $regKey -Force | Out-Null
-    Set-ItemProperty -Path $regKey -Name "(default)" -Value "URL:Listra Protocol"
-    Set-ItemProperty -Path $regKey -Name "URL Protocol" -Value ""
-    $cmdKey = "$regKey\shell\open\command"
-    New-Item -Path $cmdKey -Force | Out-Null
-    Set-ItemProperty -Path $cmdKey -Name "(default)" -Value $launcherCmd
-}
+[HKEY_CURRENT_USER\Software\Classes\listra]
+@="URL:Listra Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\listra\shell\open\command]
+@="\"C:\\Windows\\System32\\wscript.exe\" \"$escapedVbsPath\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\listentogether]
+@="URL:Listra Protocol"
+"URL Protocol"=""
+
+[HKEY_CURRENT_USER\Software\Classes\listentogether\shell\open\command]
+@="\"C:\\Windows\\System32\\wscript.exe\" \"$escapedVbsPath\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run]
+"ListraDaemon"="\"C:\\Windows\\System32\\wscript.exe\" \"$escapedVbsPath\" \"listra://start\""
+"@
+Set-Content -Path $regFilePath -Value $regContent -Encoding ASCII
+reg import "$regFilePath" | Out-Null
+Remove-Item "$regFilePath" -Force -ErrorAction SilentlyContinue
+
+# Start companion daemon in background immediately
+Start-Process "wscript.exe" -ArgumentList "`"$listraDir\launch.vbs`" `"listra://start`"" -ErrorAction SilentlyContinue
 
 # 8. Apply extension in Spicetify
 Write-Host "[4/4] Applying extension to Spotify via Spicetify..." -ForegroundColor Cyan

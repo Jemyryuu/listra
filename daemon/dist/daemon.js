@@ -3724,9 +3724,16 @@ var require_discordRpc = __commonJS({
         this.reconnectTimer = null;
         this.pipeIndex = 0;
       }
+      getPipePath(index) {
+        if (process.platform === "win32") {
+          return `\\\\.\\pipe\\discord-ipc-${index}`;
+        }
+        const prefix = process.env.XDG_RUNTIME_DIR || process.env.TMPDIR || process.env.TMP || "/tmp";
+        return `${prefix.replace(/\/+$/, "")}/discord-ipc-${index}`;
+      }
       connect() {
         if (this.client) return;
-        const pipePath = `\\\\.\\pipe\\discord-ipc-${this.pipeIndex}`;
+        const pipePath = this.getPipePath(this.pipeIndex);
         this.client = net.connect(pipePath);
         this.client.on("connect", () => {
           console.log(`[DiscordRPC] Connected to ${pipePath}`);
@@ -3749,7 +3756,8 @@ var require_discordRpc = __commonJS({
           this.cleanup();
           this.scheduleReconnect();
         });
-        this.client.on("error", (err) => {
+        this.client.on("error", () => {
+          this.pipeIndex = (this.pipeIndex + 1) % 10;
           this.cleanup();
           this.scheduleReconnect();
         });
@@ -3766,15 +3774,23 @@ var require_discordRpc = __commonJS({
         if (!this.client) return;
         this.client.write(this.encode(0, { v: 1, client_id: this.clientId }));
       }
-      setActivity({ roomId, trackName, artist, albumArtUrl, isPlaying }) {
+      setActivity({ roomId, trackName, artist, albumArtUrl, durationMs, progressMs, isPlaying }) {
         if (!this.isReady || !this.client) return;
         const joinUrl = `${this.joinBaseUrl}?room=${encodeURIComponent(roomId)}`;
+        let timestamps;
+        if (isPlaying && durationMs && durationMs > 0) {
+          const start = Math.max(0, Math.floor((Date.now() - (progressMs || 0)) / 1e3));
+          const end = start + Math.floor(durationMs / 1e3);
+          timestamps = { start, end };
+        }
+        const safeTitle = trackName && trackName.trim() ? trackName.trim().slice(0, 128) : "Listening to Spotify";
+        const safeArtist = artist && artist.trim() ? `by ${artist.trim().slice(0, 96)} \xB7 Listra` : "Listra Party";
         const activity = {
-          details: trackName,
-          state: `by ${artist} \xB7 Listra`,
+          details: safeTitle,
+          state: safeArtist,
           assets: {
             large_image: albumArtUrl || "spotify",
-            large_text: trackName
+            large_text: safeTitle
           },
           party: {
             id: roomId,
@@ -3782,7 +3798,8 @@ var require_discordRpc = __commonJS({
           },
           buttons: [
             { label: "Listra", url: joinUrl }
-          ]
+          ],
+          timestamps
         };
         const payload = {
           cmd: "SET_ACTIVITY",
@@ -3819,7 +3836,7 @@ var require_discordRpc = __commonJS({
         this.reconnectTimer = setTimeout(() => {
           this.reconnectTimer = null;
           this.connect();
-        }, 5e3);
+        }, 4e3);
       }
     };
     module2.exports = { DiscordRpcClient: DiscordRpcClient2 };
@@ -3838,15 +3855,25 @@ if (arg) {
   arg = arg.replace(/^"+|"+$/g, "").trim();
   if (arg.startsWith("listra://") || arg.startsWith("listentogether://")) {
     try {
-      const raw = arg.replace(/^listra:\/\/|^listentogether:\/\//, "").replace(/^\/+/, "");
+      const raw = arg.replace(/^listra:\/\/|^listentogether:\/\//, "").replace(/^\/+/, "").replace(/\/+$/, "");
       const cleanArg = raw.split("/")[0]?.toLowerCase()?.trim();
       if (cleanArg === "start" || cleanArg === "daemon") {
         console.log("[Listra Daemon] Received launch command via protocol.");
       } else {
-        const roomId = raw.split("/").pop()?.toUpperCase()?.trim();
+        let roomId = null;
+        if (raw.includes("?")) {
+          try {
+            const urlObj = new URL(arg.startsWith("http") ? arg : `http://dummy/${raw}`);
+            roomId = urlObj.searchParams.get("room")?.toUpperCase()?.trim();
+          } catch (e) {
+          }
+        }
+        if (!roomId) {
+          roomId = raw.split("/").pop()?.toUpperCase()?.trim();
+        }
         if (roomId && /^[A-Z0-9]{6}$/.test(roomId)) {
           console.log(`Forwarding join request for room: ${roomId}`);
-          const req = http.get(`http://127.0.0.1:${PORT}/join?room=${roomId}`, (res) => {
+          const req = http.get(`http://127.0.0.1:${PORT}/join?room=${roomId}`, () => {
             process.exit(0);
           });
           req.on("error", () => {
@@ -3869,6 +3896,7 @@ var server = http.createServer((req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "*");
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
   if (req.method === "OPTIONS") {
     res.writeHead(204);
     res.end();
@@ -3918,6 +3946,8 @@ wss.on("connection", (ws) => {
           trackName: msg.trackName,
           artist: msg.artist,
           albumArtUrl: msg.albumArtUrl,
+          durationMs: msg.durationMs,
+          progressMs: msg.progressMs,
           isPlaying: msg.isPlaying
         });
       } else if (msg.type === "presence.clear") {

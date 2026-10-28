@@ -77,4 +77,10 @@ export class PlayerAdapter {
   public static onPlayPause(callback: () => void): void {
     Spicetify.Player.addEventListener('onplaypause', callback);
   }
+
+  public static removeEventListener(event: 'songchange' | 'onplaypause', callback: () => void): void {
+    try {
+      Spicetify.Player.removeEventListener(event, callback);
+    } catch (e) {}
+  }
 }
