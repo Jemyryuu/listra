@@ -15,7 +15,7 @@ Listra synchronizes Spotify playback between friends in real time. It pairs a Sp
 
 ## Quick Start
 
-### Installation (One-Line Installer)
+### Installation
 
 Both hosts and listeners can install Listra with a single PowerShell command. No Git cloning or manual build steps required:
 
