@@ -15,7 +15,7 @@ Listra synchronizes Spotify playback between friends in real time. It pairs a Sp
 
 ## Quick Start
 
-### For Listeners (One-Line Installer)
+### For Listeners
 Friends who only want to listen do not need Git, Node.js, or build tools. Run this command in Windows PowerShell:
 
 ```powershell
