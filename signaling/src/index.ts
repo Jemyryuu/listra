@@ -44,7 +44,6 @@ export class RoomDurableObject {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
-    // Broadcast signaling message to other peers in the room
     for (const session of this.sessions) {
       if (session !== ws && session.readyState === WebSocket.OPEN) {
         session.send(message);

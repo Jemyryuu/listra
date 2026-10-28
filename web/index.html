@@ -113,8 +113,6 @@
     if (room && /^[A-Z0-9]{6}$/.test(room)) {
       roomCode.innerText = room;
       roomContainer.style.display = 'block';
-
-      // 1. Try loopback fetch to local daemon first
       fetch(`http://127.0.0.1:8989/join?room=${room}`)
         .then((res) => res.json())
         .then((data) => {
@@ -128,7 +126,6 @@
           }
         })
         .catch(() => {
-          // Loopback failed or blocked: trigger custom protocol handler
           statusText.innerText = 'Opening via Listen Together protocol...';
           window.location.href = `listentogether://join/${room}`;
         });

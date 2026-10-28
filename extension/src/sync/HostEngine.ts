@@ -32,16 +32,13 @@ export class HostEngine {
   public start(): void {
     this.broadcastCurrentTrack();
 
-    // Setup Spotify player change listeners
     PlayerAdapter.onSongChange(() => this.handleTrackChange());
     PlayerAdapter.onPlayPause(() => this.handlePlayPauseChange());
 
-    // Send state heartbeats every 2.5s
     this.heartbeatTimer = window.setInterval(() => {
       this.sendHeartbeat();
     }, 2500);
 
-    // Send clock sync pings every 2s
     this.clockPingTimer = window.setInterval(() => {
       this.transport.sendClock({
         v: PROTOCOL_VERSION,
@@ -56,7 +53,7 @@ export class HostEngine {
     if (!track) return;
     this.lastTrack = track;
 
-    // Schedule play at future host time (300ms lead time)
+    // 300ms lead time gives listener time to preload audio chunks
     const leadMs = 300;
     const executeAt = this.clock.now() + leadMs;
 

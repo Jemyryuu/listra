@@ -78,7 +78,7 @@ class DiscordRpcClient {
         size: [1, 8],
       },
       buttons: [
-        { label: '🎧 Listen Together', url: joinUrl },
+        { label: 'Listen Together', url: joinUrl },
       ],
     };
 

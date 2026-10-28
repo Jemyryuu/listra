@@ -72,7 +72,6 @@ export class SessionUI {
 
   public openModal(): void {
     if (!Spicetify.PopupModal) {
-      // Fallback
       if (this.currentRoomId) {
         if (confirm(`Active Session: ${this.currentRoomId}\nLeave session?`)) {
           this.actions.onLeave();
@@ -98,7 +97,6 @@ export class SessionUI {
     `;
 
     if (this.currentRoomId) {
-      // --- Active Session View ---
       container.innerHTML = `
         <div style="display: flex; align-items: center; justify-content: space-between; background: #282828; padding: 12px 16px; border-radius: 8px;">
           <div>
@@ -132,7 +130,6 @@ export class SessionUI {
         </div>
       `;
 
-      // Event handlers
       const copyBtn = container.querySelector('#lt-copy-btn') as HTMLButtonElement;
       copyBtn.onclick = () => {
         navigator.clipboard.writeText(this.currentRoomId!);
@@ -154,13 +151,11 @@ export class SessionUI {
         this.actions.onLeave();
       };
     } else {
-      // --- Idle / Join / Host View ---
       container.innerHTML = `
         <div style="color: #b3b3b3; font-size: 14px; line-height: 1.5;">
           Synchronize Spotify playback in real time with friends via WebRTC and Discord Rich Presence.
         </div>
 
-        <!-- Host Option -->
         <div style="background: #242424; padding: 16px; border-radius: 8px;">
           <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px;">Host a Party</div>
           <div style="font-size: 12px; color: #a7a7a7; margin-bottom: 12px;">
@@ -177,7 +172,6 @@ export class SessionUI {
           <div style="flex: 1; height: 1px; background: #333;"></div>
         </div>
 
-        <!-- Join Option -->
         <div style="background: #242424; padding: 16px; border-radius: 8px;">
           <div style="font-weight: 700; font-size: 15px; margin-bottom: 8px;">Enter 6-Letter Room Code</div>
           <div style="display: flex; gap: 8px;">

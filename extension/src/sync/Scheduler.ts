@@ -3,7 +3,7 @@ import { ClockSync } from './ClockSync';
 export class Scheduler {
   private clock: ClockSync;
   private pendingTimer: number | null = null;
-  private audioPipelineLeadMs = 25; // Compensate for internal audio buffer delay
+  private audioPipelineLeadMs = 25; // Compensates for internal audio buffer delay
 
   constructor(clock: ClockSync) {
     this.clock = clock;
@@ -13,13 +13,9 @@ export class Scheduler {
     this.audioPipelineLeadMs = Math.max(0, ms);
   }
 
-  /**
-   * Executes a callback when the virtual master clock reaches targetHostTime.
-   */
   public executeAt(targetHostTime: number, callback: () => void): void {
     this.cancel();
 
-    // Adjust target by audio pipeline lead time so sound emits on the beat
     const adjustedTarget = targetHostTime - this.audioPipelineLeadMs;
 
     const checkTime = () => {
@@ -29,15 +25,11 @@ export class Scheduler {
         this.pendingTimer = null;
         callback();
       } else if (remaining <= 15) {
-        // High-precision spin loop for the final 15ms
-        // Busy wait with setImmediate or microtask yield
-        while (adjustedTarget - this.clock.now() > 0.5) {
-          // busy wait loop
-        }
+        // High-precision spin loop for the final 15ms window
+        while (adjustedTarget - this.clock.now() > 0.5) {}
         this.pendingTimer = null;
         callback();
       } else {
-        // Coarse wait
         this.pendingTimer = window.setTimeout(checkTime, remaining - 10);
       }
     };

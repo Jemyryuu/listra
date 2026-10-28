@@ -136,7 +136,7 @@ class ListenTogetherApp {
   }
 }
 
-// Spicetify extension entry point with safety delay and existence checks
+// Wait for Spicetify APIs before initializing
 (function initWhenReady() {
   if (!window.Spicetify || !Spicetify.Player || (!Spicetify.Topbar && !Spicetify.Playbar)) {
     setTimeout(initWhenReady, 300);

@@ -1,6 +1,8 @@
-# Listen Together (Spotify and Discord RPC)
+# Listra
 
-Listen Together synchronizes Spotify playback between friends in real time. It pairs a Spicetify extension with a background companion service to control playback and display a join button on your Discord profile.
+[English](README.md) | [Bahasa Indonesia](README.id.md)
+
+Listra synchronizes Spotify playback between friends in real time. It pairs a Spicetify extension with a background companion service to control playback and display a join button on your Discord profile.
 
 ## Features
 

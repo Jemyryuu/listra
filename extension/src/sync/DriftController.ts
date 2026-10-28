@@ -40,8 +40,6 @@ export class DriftController {
       }
       return { deltaMs, status: 'in-sync' };
     }
-
-    // Large drift (> 150ms)
     this.moderateDriftCount = 0;
     onResyncNeeded(expectedPositionMs);
     return { deltaMs, status: 'hard-resync' };

@@ -70,7 +70,6 @@ export class ListenerEngine {
       }
       await PlayerAdapter.pause();
 
-      // Schedule exact play trigger
       this.scheduler.executeAt(msg.executeAtHostTime, () => {
         PlayerAdapter.play();
       });

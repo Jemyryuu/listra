@@ -38,7 +38,6 @@ export class PeerTransport {
     };
 
     if (this.isHost) {
-      // Host creates the data channels
       this.clockChannel = this.pc.createDataChannel('clock', {
         ordered: false,
         maxRetransmits: 0,
@@ -50,7 +49,6 @@ export class PeerTransport {
       });
       this.setupControlChannel(this.controlChannel);
     } else {
-      // Listener receives the data channels
       this.pc.ondatachannel = (event) => {
         if (event.channel.label === 'clock') {
           this.clockChannel = event.channel;

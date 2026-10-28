@@ -6,13 +6,6 @@
     maxSamples = 16;
     currentOffset = 0;
     bestRtt = Infinity;
-    /**
-     * Records a round-trip ping/pong sample.
-     * t1: Time ping was sent from local peer
-     * t2: Time ping was received on remote peer
-     * t3: Time pong was sent from remote peer
-     * t4: Time pong was received back on local peer
-     */
     recordSample(t1, t2, t3, t4) {
       const rtt = t4 - t1 - (t3 - t2);
       if (rtt < 0) return;
@@ -34,9 +27,6 @@
       }
       this.currentOffset = offsetSum / topCount;
     }
-    /**
-     * Returns current monotonic master time aligned with the host.
-     */
     now() {
       return performance.now() + this.currentOffset;
     }
@@ -56,16 +46,13 @@
     clock;
     pendingTimer = null;
     audioPipelineLeadMs = 25;
-    // Compensate for internal audio buffer delay
+    // Compensates for internal audio buffer delay
     constructor(clock) {
       this.clock = clock;
     }
     setAudioPipelineLead(ms) {
       this.audioPipelineLeadMs = Math.max(0, ms);
     }
-    /**
-     * Executes a callback when the virtual master clock reaches targetHostTime.
-     */
     executeAt(targetHostTime, callback) {
       this.cancel();
       const adjustedTarget = targetHostTime - this.audioPipelineLeadMs;
@@ -704,7 +691,6 @@ Leave session?`)) {
           Synchronize Spotify playback in real time with friends via WebRTC and Discord Rich Presence.
         </div>
 
-        <!-- Host Option -->
         <div style="background: #242424; padding: 16px; border-radius: 8px;">
           <div style="font-weight: 700; font-size: 15px; margin-bottom: 4px;">Host a Party</div>
           <div style="font-size: 12px; color: #a7a7a7; margin-bottom: 12px;">
@@ -721,7 +707,6 @@ Leave session?`)) {
           <div style="flex: 1; height: 1px; background: #333;"></div>
         </div>
 
-        <!-- Join Option -->
         <div style="background: #242424; padding: 16px; border-radius: 8px;">
           <div style="font-weight: 700; font-size: 15px; margin-bottom: 8px;">Enter 6-Letter Room Code</div>
           <div style="display: flex; gap: 8px;">

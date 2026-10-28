@@ -6,7 +6,6 @@ const PORT = 8989;
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '383226320970055681';
 const JOIN_BASE_URL = process.env.JOIN_BASE_URL || 'https://listen-together.pages.dev/join';
 
-// Check if launched as protocol handler: listentogether://join/ABC123
 const arg = process.argv[2];
 if (arg && arg.startsWith('listentogether://')) {
   try {
@@ -29,15 +28,12 @@ if (arg && arg.startsWith('listentogether://')) {
   }
 }
 
-// 1. Initialize Discord RPC Client
 const discord = new DiscordRpcClient(DISCORD_CLIENT_ID, JOIN_BASE_URL);
 discord.connect();
 
-// 2. HTTP Server (handles local browser loopback /join?room=ABC123)
 let activeSpicetifyWs = null;
 
 const server = http.createServer((req, res) => {
-  // Set CORS headers for the static join page
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', '*');
@@ -75,7 +71,6 @@ const server = http.createServer((req, res) => {
   res.end('Not Found');
 });
 
-// 3. WebSocket Server (communicates with Spicetify)
 const wss = new WebSocketServer({ server });
 
 wss.on('connection', (ws) => {
