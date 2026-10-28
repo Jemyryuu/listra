@@ -40,10 +40,10 @@ const command = `wscript.exe "${vbsPath}" "%1"`;
 console.log('Registering listra:// URL protocol in HKCU registry...');
 
 const regCommands = [
-  'reg add "HKCU\\Software\\Classes\\listra" /ve /d "URL:Listra Protocol" /f',
+  'reg add "HKCU\\Software\\Classes\\listra" /ve /d "URL:Listra Protocol (Spicetify Extension)" /f',
   'reg add "HKCU\\Software\\Classes\\listra" /v "URL Protocol" /d "" /f',
   `reg add "HKCU\\Software\\Classes\\listra\\shell\\open\\command" /ve /d "${command.replace(/"/g, '\\"')}" /f`,
-  'reg add "HKCU\\Software\\Classes\\listentogether" /ve /d "URL:Listra Protocol" /f',
+  'reg add "HKCU\\Software\\Classes\\listentogether" /ve /d "URL:Listra Protocol (Spicetify Extension)" /f',
   'reg add "HKCU\\Software\\Classes\\listentogether" /v "URL Protocol" /d "" /f',
   `reg add "HKCU\\Software\\Classes\\listentogether\\shell\\open\\command" /ve /d "${command.replace(/"/g, '\\"')}" /f`,
 ];

@@ -3896,7 +3896,7 @@ var server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true, room }));
       } else {
         res.writeHead(503, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: "Spotify extension not connected" }));
+        res.end(JSON.stringify({ ok: false, error: "Spicetify extension not connected. Listra requires Spotify patched with Spicetify." }));
       }
       return;
     }

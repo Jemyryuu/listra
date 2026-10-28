@@ -1,7 +1,7 @@
 {
   "name": "listra",
   "version": "1.0.0",
-  "description": "Real-time Spotify playback sync over WebRTC with Discord Rich Presence",
+  "description": "Real-time Spotify playback sync Spicetify extension over WebRTC with Discord Rich Presence",
   "scripts": {
     "build": "npm run build:extension && npm run build:daemon",
     "build:extension": "npm --prefix extension run build",

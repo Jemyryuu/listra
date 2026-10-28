@@ -1,10 +1,11 @@
 $ErrorActionPreference = 'Stop'
 
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host " Installing Listra for Spotify" -ForegroundColor Green
+Write-Host " Installing Listra (Spicetify Extension for Spotify)" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
-# 1. Ensure Spicetify CLI is installed
+# 1. Ensure Spicetify CLI is installed (required: Listra is built for Spicetify and cannot run on regular Spotify)
+Write-Host "`n[*] Verifying Spicetify CLI (required: Listra does not run on regular Spotify)..." -ForegroundColor Cyan
 $spicetifyCmd = Get-Command spicetify -ErrorAction SilentlyContinue
 if (-not $spicetifyCmd) {
     $spicetifyPath = "$env:LOCALAPPDATA\spicetify"
@@ -109,7 +110,7 @@ foreach ($proto in @("listra", "listentogether")) {
 }
 
 # 8. Apply extension in Spicetify
-Write-Host "[4/4] Applying extension to Spotify..." -ForegroundColor Cyan
+Write-Host "[4/4] Applying extension to Spotify via Spicetify..." -ForegroundColor Cyan
 $legacyExtensionFile = "$extensionsDir\listen-together.js"
 if (Test-Path $legacyExtensionFile) {
     Remove-Item $legacyExtensionFile -Force -ErrorAction SilentlyContinue
@@ -118,11 +119,16 @@ try {
     spicetify config extensions listen-together.js- | Out-Null
 } catch {}
 spicetify config extensions listra.js
-spicetify apply
+try {
+    spicetify apply
+} catch {
+    Write-Host "[*] Initializing Spicetify backup and applying Spotify files..." -ForegroundColor Yellow
+    spicetify backup apply
+}
 
 Write-Host "`n=================================================" -ForegroundColor Green
 Write-Host " SUCCESS: Listra has been installed!" -ForegroundColor Green
 Write-Host "=================================================" -ForegroundColor Green
 Write-Host "You can now:" -ForegroundColor White
-Write-Host "  1. Restart Spotify - click 'Listra' to Host or Join." -ForegroundColor White
+Write-Host "  1. Restart Spotify (patched with Spicetify) - click 'Listra' in Spicetify to Host or Join." -ForegroundColor White
 Write-Host "  2. (Optional) Run 'listra' from any terminal to start the daemon manually." -ForegroundColor White

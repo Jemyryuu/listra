@@ -306,7 +306,7 @@ export class SessionUI {
       mainContent.style.cssText = 'display: flex; flex-direction: column; gap: 16px;';
       mainContent.innerHTML = `
         <div style="color: #b3b3b3; font-size: 14px; line-height: 1.5;">
-          Synchronize Spotify playback in real time with friends via WebRTC and Discord Rich Presence.
+          Spicetify extension to synchronize Spotify playback in real time with friends via WebRTC and Discord Rich Presence.
         </div>
 
         ${hostSection}

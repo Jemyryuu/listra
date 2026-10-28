@@ -2,7 +2,7 @@
 
 [English](README.md) | [Bahasa Indonesia](README.id.md)
 
-Listra menyinkronkan pemutaran lagu di Spotify secara *real-time* antar-teman. Sistem ini menggabungkan ekstensi Spicetify dan layanan background daemon untuk mengontrol playback serta menampilkan tombol gabung langsung di profil Discord.
+Listra adalah ekstensi Spicetify yang menyinkronkan pemutaran lagu Spotify secara *real-time* antar-teman. Sistem ini menggabungkan ekstensi Spicetify dan layanan background daemon untuk mengontrol playback serta menampilkan tombol gabung langsung di profil Discord.
 
 ## Fitur
 
@@ -10,12 +10,15 @@ Listra menyinkronkan pemutaran lagu di Spotify secara *real-time* antar-teman. S
 - Menyelaraskan playback langsung via peer-to-peer WebRTC UDP data channel.
 - Mengestimasi selisih jam perangkat memakai algoritma SNTP agar aksi putar dan *seek* dieksekusi tepat pada timestamp yang sama.
 - Menangani *audio drift* antar sound card tanpa lompatan suara (skip) atau bunyi *pop*.
-- Berfungsi untuk akun Spotify gratis maupun Premium di desktop karena kontrol playback berjalan langsung di dalam aplikasi client.
+- Berfungsi untuk akun Spotify gratis maupun Premium di desktop via Spicetify (catatan: tidak berfungsi pada Spotify biasa tanpa Spicetify).
 - Musik tetap berjalan saat sedang di voice call Discord tanpa terhenti otomatis setelah 30 detik.
 
 ## Tutorial
 
 ### Pemasangan
+
+> [!IMPORTANT]
+> Listra memerlukan aplikasi desktop Spotify resmi yang telah dipasang [Spicetify](https://spicetify.app). Listra **tidak dapat berjalan pada Spotify biasa** (client standar tanpa Spicetify, versi Microsoft Store, maupun web/mobile player). Skrip pemasangan satu baris di bawah ini akan mengurus pemasangan Spicetify dan ekstensi Listra secara otomatis.
 
 Host maupun pendengar dapat memasang Listra hanya dengan satu perintah PowerShell tanpa perlu clone repositori Git atau kompilasi manual:
 
@@ -32,7 +35,7 @@ Skrip ini akan otomatis:
 6. Menambahkan perintah `listra` ke PATH sistem pengguna.
 7. Menghapus konfigurasi lama `listen-together.js` dan mengaktifkan `listra.js` di Spotify via `spicetify apply`.
 
-Restart aplikasi Spotify setelah pemasangan selesai.
+Restart aplikasi Spotify (yang telah diterapkan Spicetify) setelah pemasangan selesai.
 
 ### Menjalankan Listra
 
