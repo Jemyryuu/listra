@@ -11,35 +11,9 @@ Listen Together synchronizes Spotify playback between friends in real time. It p
 - Works on desktop Spotify free and premium tiers because playback controls run inside the client.
 - Keeps playing during Discord voice calls without muting after 30 seconds.
 
-## Project Structure
-
-```
-listen-together-plugin/
-├── shared/
-│   └── protocol.ts           # Message schemas for IPC and WebRTC
-├── extension/                 # Spicetify client extension
-│   ├── src/
-│   │   ├── app.tsx            # Main lifecycle and session coordinator
-│   │   ├── player/            # Wrapper for Spicetify player controls
-│   │   ├── sync/              # Clock sync, drift controller, and action scheduler
-│   │   ├── net/               # WebRTC peer transport and daemon bridge
-│   │   └── ui/                # Topbar button and modal interface
-│   └── scripts/install.js     # Builds and applies extension to local Spotify
-├── daemon/                    # Background companion daemon
-│   ├── src/
-│   │   ├── index.js           # Local HTTP and WebSocket server on 127.0.0.1:8989
-│   │   └── discordRpc.js      # Discord IPC pipe client (\\.\pipe\discord-ipc-0)
-│   └── scripts/register-protocol.js # Registers listentogether:// URL scheme in Windows registry
-├── web/
-│   └── index.html             # Landing page for Discord button redirects
-└── signaling/
-    ├── src/index.ts           # Cloudflare Worker for WebRTC signaling
-    └── wrangler.toml          # Worker deployment configuration
-```
-
 ## Quick Start
 
-### For Friends (One-Line Installer)
+### For Listeners (One-Line Installer)
 Friends who only want to listen do not need Git, Node.js, or build tools. Run this command in Windows PowerShell:
 
 ```powershell
