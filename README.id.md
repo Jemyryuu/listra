@@ -13,32 +13,6 @@ Listra menyinkronkan pemutaran lagu di Spotify secara *real-time* antar-teman. S
 - Berfungsi untuk akun Spotify gratis maupun Premium di desktop karena kontrol playback berjalan langsung di dalam aplikasi client.
 - Musik tetap berjalan saat sedang di voice call Discord tanpa terhenti otomatis setelah 30 detik.
 
-## Struktur Proyek
-
-```
-listen-together-plugin/
-├── shared/
-│   └── protocol.ts           # Skema pesan untuk IPC dan WebRTC
-├── extension/                 # Ekstensi client Spicetify
-│   ├── src/
-│   │   ├── app.tsx            # Siklus hidup utama dan koordinator sesi
-│   │   ├── player/            # Wrapper kontrol player Spicetify
-│   │   ├── sync/              # Sinkronisasi jam, kontrol drift, dan penjadwal aksi
-│   │   ├── net/               # Transport peer WebRTC dan bridge daemon
-│   │   └── ui/                # Tombol topbar dan tampilan modal
-│   └── scripts/install.js     # Build dan pasang ekstensi ke Spotify lokal
-├── daemon/                    # Background companion daemon
-│   ├── src/
-│   │   ├── index.js           # Server HTTP & WebSocket lokal di 127.0.0.1:8989
-│   │   └── discordRpc.js      # Client IPC pipe Discord (\\.\pipe\discord-ipc-0)
-│   └── scripts/register-protocol.js # Mendaftarkan skema URL listentogether:// di registry Windows
-├── web/
-│   └── index.html             # Landing page untuk pengalihan tombol Discord
-└── signaling/
-    ├── src/index.ts           # Cloudflare Worker untuk sinyal WebRTC
-    └── wrangler.toml          # Konfigurasi deployment Worker
-```
-
 ## Panduan Cepat
 
 ### Untuk Teman / Pendengar (Pemasangan Cepat Satu Baris)
