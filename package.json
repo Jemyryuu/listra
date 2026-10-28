@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Real-time Spotify playback sync over WebRTC with Discord Rich Presence",
   "scripts": {
+    "build": "npm run build:extension && npm run build:daemon",
     "build:extension": "npm --prefix extension run build",
+    "build:daemon": "node extension/node_modules/esbuild/bin/esbuild daemon/src/index.js --bundle --platform=node --outfile=daemon/dist/daemon.js",
     "apply:extension": "npm --prefix extension run apply",
     "start:daemon": "npm --prefix daemon start",
     "register:protocol": "npm --prefix daemon run register-protocol",

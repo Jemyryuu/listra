@@ -21,7 +21,7 @@ export default {
       return roomObject.fetch(request);
     }
 
-    return new Response('Listen Together Signaling Worker', { status: 200 });
+    return new Response('Listra Signaling Worker', { status: 200 });
   },
 };
 

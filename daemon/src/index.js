@@ -4,28 +4,36 @@ const { DiscordRpcClient } = require('./discordRpc');
 
 const PORT = 8989;
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID || '383226320970055681';
-const JOIN_BASE_URL = process.env.JOIN_BASE_URL || 'https://listen-together.pages.dev/join';
+const JOIN_BASE_URL = process.env.JOIN_BASE_URL || 'https://listra.pages.dev/join';
 
-const arg = process.argv[2];
-if (arg && arg.startsWith('listentogether://')) {
-  try {
-    const raw = arg.replace('listentogether://', '');
-    const roomId = raw.split('/').pop()?.toUpperCase()?.trim();
-    if (roomId && /^[A-Z0-9]{6}$/.test(roomId)) {
-      console.log(`Forwarding join request for room: ${roomId}`);
-      const req = http.get(`http://127.0.0.1:${PORT}/join?room=${roomId}`, (res) => {
-        process.exit(0);
-      });
-      req.on('error', () => {
-        console.error('Daemon not running or request failed.');
-        process.exit(1);
-      });
-      setTimeout(() => process.exit(0), 1000);
-      return;
+let arg = process.argv[2];
+if (arg) {
+  arg = arg.replace(/^"+|"+$/g, '').trim();
+  if (arg.startsWith('listra://') || arg.startsWith('listentogether://')) {
+    try {
+      const raw = arg.replace(/^listra:\/\/|^listentogether:\/\//, '').replace(/^\/+/, '');
+      const cleanArg = raw.split('/')[0]?.toLowerCase()?.trim();
+      if (cleanArg === 'start' || cleanArg === 'daemon') {
+        console.log('[Listra Daemon] Received launch command via protocol.');
+      } else {
+      const roomId = raw.split('/').pop()?.toUpperCase()?.trim();
+      if (roomId && /^[A-Z0-9]{6}$/.test(roomId)) {
+        console.log(`Forwarding join request for room: ${roomId}`);
+        const req = http.get(`http://127.0.0.1:${PORT}/join?room=${roomId}`, (res) => {
+          process.exit(0);
+        });
+        req.on('error', () => {
+          console.error('Daemon not running or request failed.');
+          process.exit(1);
+        });
+        setTimeout(() => process.exit(0), 1000);
+        return;
+      }
     }
   } catch (err) {
     process.exit(1);
   }
+}
 }
 
 const discord = new DiscordRpcClient(DISCORD_CLIENT_ID, JOIN_BASE_URL);
@@ -45,6 +53,12 @@ const server = http.createServer((req, res) => {
   }
 
   const url = new URL(req.url, `http://${req.headers.host}`);
+  if (url.pathname === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, version: '1.0.0' }));
+    return;
+  }
+
   if (url.pathname === '/join') {
     const room = url.searchParams.get('room')?.toUpperCase()?.trim();
     if (room && /^[A-Z0-9]{6}$/.test(room)) {
@@ -107,6 +121,16 @@ wss.on('connection', (ws) => {
   });
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`[Listra Daemon] Already running on http://127.0.0.1:${PORT}`);
+    process.exit(0);
+  } else {
+    console.error('[Listra Daemon] Server error:', err.message);
+    process.exit(1);
+  }
+});
+
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`[ListenTogether Daemon] Running on http://127.0.0.1:${PORT}`);
+  console.log(`[Listra Daemon] Running on http://127.0.0.1:${PORT}`);
 });

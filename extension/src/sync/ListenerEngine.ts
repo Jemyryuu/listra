@@ -110,7 +110,7 @@ export class ListenerEngine {
       msg.atHostTime,
       msg.isPlaying,
       (targetPos) => {
-        console.log(`[ListenTogether] Drift correction seeking to ${targetPos}ms`);
+        console.log(`[Listra] Drift correction seeking to ${targetPos}ms`);
         PlayerAdapter.seek(targetPos);
       }
     );

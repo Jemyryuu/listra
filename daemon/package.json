@@ -1,10 +1,11 @@
 {
-  "name": "listen-together-daemon",
+  "name": "listra-daemon",
   "version": "1.0.0",
-  "description": "Companion daemon for Listen Together Spicetify and Discord RPC",
+  "description": "Companion daemon for Listra Spicetify and Discord RPC",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
+    "build": "esbuild src/index.js --bundle --platform=node --outfile=dist/daemon.js",
     "register-protocol": "node scripts/register-protocol.js"
   },
   "dependencies": {

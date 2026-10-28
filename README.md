@@ -15,8 +15,9 @@ Listra synchronizes Spotify playback between friends in real time. It pairs a Sp
 
 ## Quick Start
 
-### For Listeners
-Friends who only want to listen do not need Git, Node.js, or build tools. Run this command in Windows PowerShell:
+### Installation (One-Line Installer)
+
+Both hosts and listeners can install Listra with a single PowerShell command. No Git cloning or manual build steps required:
 
 ```powershell
 irm https://raw.githubusercontent.com/Jemyryuu/listra/main/install.ps1 | iex
@@ -24,28 +25,46 @@ irm https://raw.githubusercontent.com/Jemyryuu/listra/main/install.ps1 | iex
 
 The script will:
 1. Install Spicetify CLI if it is not already on your system.
-2. Download the pre-built `listen-together.js` bundle into your Spicetify extensions folder.
-3. Register the `listentogether://` protocol in your user registry.
-4. Run `spicetify apply` to enable the extension in Spotify.
+2. Install Node.js LTS silently via winget if missing (required for hosting with Discord Rich Presence).
+3. Download pre-built `listra.js` into your Spicetify extensions directory.
+4. Download the standalone `daemon.js` companion service into `%LOCALAPPDATA%\listra\`.
+5. Register the `listra://` protocol handler in your Windows user registry to auto-launch the daemon silently.
+6. Add the `listra` command to your PATH.
+7. Remove any legacy `listen-together.js` references and enable `listra.js` in Spotify via `spicetify apply`.
 
 Restart Spotify after installation completes.
 
-### For Hosts (Running the Daemon)
+### Running Listra
 
-1. Register the URL protocol handler:
+- **To Host**: Open Spotify, click the **Listra** button, and click **Start Hosting Party**. Spotify launches the background daemon automatically.
+- **To Join**: Click a friend's Discord profile button, follow a join link, or enter their 6-letter room code in the Listra menu.
+- **Terminal Command (Optional)**: You can also start the companion daemon manually from any command line:
+  ```powershell
+  listra
+  ```
+
+---
+
+## Development
+
+If you are developing or modifying Listra from source:
+
+1. Build both extension and daemon bundles:
    ```powershell
-   npm run register:protocol
+   npm run build
    ```
-2. Build and apply the Spicetify extension:
+2. Apply the extension to your local Spotify client:
    ```powershell
    npm run apply:extension
    ```
-3. Start the companion daemon:
+3. Register the protocol handler for your development directory:
+   ```powershell
+   npm run register:protocol
+   ```
+4. Start the development daemon:
    ```powershell
    npm run start:daemon
    ```
-
-The daemon connects to your local Discord client through `\\.\pipe\discord-ipc-0` and listens for browser redirects on `http://127.0.0.1:8989`.
 
 ## Cloudflare Deployment
 
@@ -61,7 +80,7 @@ npm run deploy:signaling
 
 ## Configuration
 
-Set environment variables before starting the daemon to use a custom Discord Application ID or custom landing page domain:
+Set environment variables before starting the daemon to use a custom Discord Application ID or landing page domain:
 
 ```powershell
 $env:DISCORD_CLIENT_ID = "YOUR_DISCORD_APP_ID"

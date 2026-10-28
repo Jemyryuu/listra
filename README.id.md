@@ -13,10 +13,11 @@ Listra menyinkronkan pemutaran lagu di Spotify secara *real-time* antar-teman. S
 - Berfungsi untuk akun Spotify gratis maupun Premium di desktop karena kontrol playback berjalan langsung di dalam aplikasi client.
 - Musik tetap berjalan saat sedang di voice call Discord tanpa terhenti otomatis setelah 30 detik.
 
-## Instalasi
+## Panduan Cepat
 
-### Untuk Teman / Pendengar
-Teman yang hanya ingin ikut mendengarkan tidak memerlukan Git, Node.js, atau build tools. Jalankan perintah ini di Windows PowerShell:
+### Pemasangan (Satu Baris Perintah)
+
+Host maupun pendengar dapat memasang Listra hanya dengan satu perintah PowerShell tanpa perlu clone repositori Git atau kompilasi manual:
 
 ```powershell
 irm https://raw.githubusercontent.com/Jemyryuu/listra/main/install.ps1 | iex
@@ -24,28 +25,46 @@ irm https://raw.githubusercontent.com/Jemyryuu/listra/main/install.ps1 | iex
 
 Skrip ini akan otomatis:
 1. Memasang Spicetify CLI jika belum tersedia di sistem.
-2. Mengunduh bundle `listen-together.js` siap pakai ke direktori extensions Spicetify.
-3. Mendaftarkan protokol `listentogether://` ke registry pengguna.
-4. Menjalankan `spicetify apply` untuk mengaktifkan ekstensi di Spotify.
+2. Memasang Node.js LTS secara senyap lewat winget jika belum terpasang (diperlukan untuk host dengan Discord Rich Presence).
+3. Mengunduh bundle ekstensi `listra.js` ke folder extensions Spicetify.
+4. Mengunduh file daemon `daemon.js` mandiri ke `%LOCALAPPDATA%\listra\`.
+5. Mendaftarkan skema protokol `listra://` di Windows registry agar daemon dapat berjalan otomatis di latar belakang.
+6. Menambahkan perintah `listra` ke PATH sistem pengguna.
+7. Menghapus konfigurasi lama `listen-together.js` dan mengaktifkan `listra.js` di Spotify via `spicetify apply`.
 
 Restart aplikasi Spotify setelah pemasangan selesai.
 
-### Untuk Host (Menjalankan Daemon)
+### Menjalankan Listra
 
-1. Daftarkan URL protocol handler:
+- **Untuk Host**: Buka Spotify, klik ikon **Listra**, lalu klik **Start Hosting Party**. Spotify akan otomatis menyalakan background daemon tanpa perlu buka terminal.
+- **Untuk Bergabung**: Klik tombol profil Discord teman, buka tautan undangan, atau masukkan 6 huruf kode room di menu Listra.
+- **Perintah Terminal (Opsional)**: Anda juga bisa menyalakan daemon secara manual kapan saja dengan mengetik:
+  ```powershell
+  listra
+  ```
+
+---
+
+## Pengembangan (Development)
+
+Jika Anda ingin mengubah kode sumber dari repositori:
+
+1. Build bundle ekstensi dan daemon:
    ```powershell
-   npm run register:protocol
+   npm run build
    ```
-2. Build dan pasang ekstensi Spicetify:
+2. Terapkan ekstensi ke client Spotify lokal:
    ```powershell
    npm run apply:extension
    ```
-3. Jalankan daemon pendamping:
+3. Daftarkan handler protokol dari direktori pengembangan:
+   ```powershell
+   npm run register:protocol
+   ```
+4. Jalankan daemon:
    ```powershell
    npm run start:daemon
    ```
-
-Daemon akan terhubung ke aplikasi Discord melalui `\\.\pipe\discord-ipc-0` dan mendengarkan redirect peramban di `http://127.0.0.1:8989`.
 
 ## Deployment Cloudflare
 
@@ -61,10 +80,10 @@ npm run deploy:signaling
 
 ## Konfigurasi
 
-Atur environment variable berikut sebelum menjalankan daemon jika ingin menggunakan Discord Application ID atau domain landing page sendiri:
+Atur environment variable berikut sebelum menjalankan daemon jika ingin menggunakan Discord Application ID atau domain landing page kustom:
 
 ```powershell
-$env:DISCORD_CLIENT_ID = "DISCORD_APP_ID_ANDA"
-$env:JOIN_BASE_URL = "https://domain-pages-anda.com/join"
+$env:DISCORD_CLIENT_ID = "YOUR_DISCORD_APP_ID"
+$env:JOIN_BASE_URL = "https://your-custom-pages-domain.com/join"
 npm run start:daemon
 ```

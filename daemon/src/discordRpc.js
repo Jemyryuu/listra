@@ -68,7 +68,7 @@ class DiscordRpcClient {
 
     const activity = {
       details: trackName,
-      state: `by ${artist} · Listen Together`,
+      state: `by ${artist} · Listra`,
       assets: {
         large_image: albumArtUrl || 'spotify',
         large_text: trackName,
@@ -78,7 +78,7 @@ class DiscordRpcClient {
         size: [1, 8],
       },
       buttons: [
-        { label: 'Listen Together', url: joinUrl },
+        { label: 'Listra', url: joinUrl },
       ],
     };
 

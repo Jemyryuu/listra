@@ -5,39 +5,74 @@ import { PeerTransport } from './net/PeerTransport';
 import { DaemonBridge } from './net/DaemonBridge';
 import { SessionUI } from './ui/SessionUI';
 
-class ListenTogetherApp {
+class ListraApp {
   private clock: ClockSync;
   private daemon: DaemonBridge;
   private ui: SessionUI;
   private transport: PeerTransport | null = null;
   private hostEngine: HostEngine | null = null;
   private listenerEngine: ListenerEngine | null = null;
+  private isAutoLaunchingDaemon = false;
+  private autoLaunchTimer: number | null = null;
 
   constructor() {
     this.clock = new ClockSync();
 
-    this.daemon = new DaemonBridge((roomId) => {
-      this.joinRoom(roomId);
-    });
+    this.daemon = new DaemonBridge(
+      (roomId) => {
+        this.joinRoom(roomId);
+      },
+      (connected) => {
+        this.handleDaemonStatusChange(connected);
+      }
+    );
 
     this.ui = new SessionUI({
       onStartHost: () => this.startHost(),
       onJoin: (roomId) => this.joinRoom(roomId),
       onLeave: () => this.leave(),
+      isDaemonConnected: () => this.daemon.hasConnection(),
+      onLaunchDaemon: () => this.autoLaunchDaemonAndHost(),
     });
   }
 
+  private handleDaemonStatusChange(connected: boolean): void {
+    if (connected) {
+      if (this.autoLaunchTimer !== null) {
+        clearTimeout(this.autoLaunchTimer);
+        this.autoLaunchTimer = null;
+      }
+      const wasAutoLaunching = this.isAutoLaunchingDaemon;
+      this.isAutoLaunchingDaemon = false;
+      this.ui.setDaemonLaunching(false);
+
+      if (this.hostEngine) {
+        this.hostEngine.broadcastCurrentTrack();
+        Spicetify.showNotification('[Listra] Reconnected to companion daemon. Discord RPC restored.');
+      } else if (wasAutoLaunching) {
+        Spicetify.showNotification('[Listra] Daemon connected! Starting host session...');
+        this.startHost();
+        return;
+      }
+    } else {
+      if (this.hostEngine) {
+        Spicetify.showNotification('[Listra] Companion daemon disconnected. Discord RPC is inactive.', true);
+      }
+    }
+    this.ui.updateDaemonStatus(connected);
+  }
+
   public init(): void {
-    console.log('[ListenTogether] Initializing extension...');
+    console.log('[Listra] Initializing extension...');
     try {
       this.daemon.connect();
     } catch (e) {
-      console.warn('[ListenTogether] Daemon connection deferred:', e);
+      console.warn('[Listra] Daemon connection deferred:', e);
     }
     try {
       this.ui.register();
     } catch (e) {
-      console.warn('[ListenTogether] UI registration deferred:', e);
+      console.warn('[Listra] UI registration deferred:', e);
     }
   }
 
@@ -50,23 +85,55 @@ class ListenTogetherApp {
     return id;
   }
 
+  private autoLaunchDaemonAndHost(): void {
+    if (this.isAutoLaunchingDaemon) return;
+
+    this.isAutoLaunchingDaemon = true;
+    Spicetify.showNotification('[Listra] Starting companion daemon in background...');
+    this.ui.setDaemonLaunching(true);
+
+    try {
+      const a = document.createElement('a');
+      a.href = 'listra://start';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        try {
+          a.remove();
+        } catch (e) {}
+      }, 1000);
+    } catch (err) {
+      console.warn('[Listra] Protocol launch failed:', err);
+    }
+
+    if (this.autoLaunchTimer !== null) clearTimeout(this.autoLaunchTimer);
+    this.autoLaunchTimer = window.setTimeout(() => {
+      this.autoLaunchTimer = null;
+      if (this.isAutoLaunchingDaemon && !this.daemon.hasConnection()) {
+        this.isAutoLaunchingDaemon = false;
+        this.ui.setDaemonLaunching(false);
+      }
+    }, 6000);
+  }
+
   public startHost(): void {
     try {
       this.leave();
 
       const roomId = this.generateRoomId();
-      console.log(`[ListenTogether] Starting host session: ${roomId}`);
+      console.log(`[Listra] Starting host session: ${roomId}`);
 
       this.transport = new PeerTransport(true, {
         onClockMessage: () => {},
         onControlMessage: () => {},
         onConnected: () => {
-          console.log('[ListenTogether] Peer connected to host!');
-          Spicetify.showNotification('Friend joined your Listen Together session!');
+          console.log('[Listra] Peer connected to host!');
+          Spicetify.showNotification('Friend joined your Listra session!');
           this.hostEngine?.sendHeartbeat();
         },
         onDisconnected: () => {
-          console.log('[ListenTogether] Peer disconnected from host.');
+          console.log('[Listra] Peer disconnected from host.');
         },
       });
 
@@ -78,8 +145,14 @@ class ListenTogetherApp {
       this.hostEngine = new HostEngine(roomId, this.clock, this.transport, this.daemon);
       this.hostEngine.start();
       this.ui.setSessionActive(roomId, true);
+
+      // Attempt background launch of daemon if offline so Discord RPC can connect without blocking host session
+      if (!this.daemon.hasConnection()) {
+        this.autoLaunchDaemonAndHost();
+      }
     } catch (err) {
-      console.error('[ListenTogether] Error starting host:', err);
+      console.error('[Listra] Error starting host:', err);
+      Spicetify.showNotification('[Listra] Error starting host session: ' + String(err), true);
     }
   }
 
@@ -87,7 +160,7 @@ class ListenTogetherApp {
     try {
       this.leave();
 
-      console.log(`[ListenTogether] Joining room: ${roomId}`);
+      console.log(`[Listra] Joining room: ${roomId}`);
 
       this.transport = new PeerTransport(false, {
         onClockMessage: (msg) => {
@@ -97,11 +170,11 @@ class ListenTogetherApp {
           this.listenerEngine?.handleControlMessage(msg);
         },
         onConnected: () => {
-          console.log('[ListenTogether] Successfully connected to host!');
+          console.log('[Listra] Successfully connected to host!');
           Spicetify.showNotification('Connected! Synchronizing playback...');
         },
         onDisconnected: () => {
-          console.log('[ListenTogether] Disconnected from host.');
+          console.log('[Listra] Disconnected from host.');
           this.leave();
         },
       });
@@ -114,7 +187,7 @@ class ListenTogetherApp {
       this.listenerEngine = new ListenerEngine(this.clock, this.transport);
       this.ui.setSessionActive(roomId, false);
     } catch (err) {
-      console.error('[ListenTogether] Error joining room:', err);
+      console.error('[Listra] Error joining room:', err);
     }
   }
 
@@ -131,7 +204,7 @@ class ListenTogetherApp {
       this.listenerEngine = null;
       this.ui.setSessionInactive();
     } catch (err) {
-      console.error('[ListenTogether] Error leaving session:', err);
+      console.error('[Listra] Error leaving session:', err);
     }
   }
 }
@@ -144,9 +217,9 @@ class ListenTogetherApp {
   }
 
   try {
-    const app = new ListenTogetherApp();
+    const app = new ListraApp();
     app.init();
   } catch (err) {
-    console.error('[ListenTogether] Uncaught init error:', err);
+    console.error('[Listra] Uncaught init error:', err);
   }
 })();

@@ -7,13 +7,18 @@ import {
 export class DaemonBridge {
   private ws: WebSocket | null = null;
   private url = 'ws://127.0.0.1:8989';
-  private token = 'listen-together-local-token';
+  private token = 'listra-local-token';
   private isConnected = false;
   private reconnectTimer: number | null = null;
   private onJoinRequestHandler?: (roomId: string) => void;
+  private onStatusChangeHandler?: (connected: boolean) => void;
 
-  constructor(onJoinRequest?: (roomId: string) => void) {
+  constructor(
+    onJoinRequest?: (roomId: string) => void,
+    onStatusChange?: (connected: boolean) => void
+  ) {
     this.onJoinRequestHandler = onJoinRequest;
+    this.onStatusChangeHandler = onStatusChange;
   }
 
   public connect(): void {
@@ -23,14 +28,18 @@ export class DaemonBridge {
       this.ws = new WebSocket(this.url);
 
       this.ws.onopen = () => {
+        const wasConnected = this.isConnected;
         this.isConnected = true;
-        console.log('[ListenTogether] Connected to companion daemon.');
+        console.log('[Listra] Connected to companion daemon.');
         this.send({
           v: PROTOCOL_VERSION,
           type: 'hello',
           token: this.token,
           clientVersion: '1.0.0',
         });
+        if (!wasConnected && this.onStatusChangeHandler) {
+          this.onStatusChangeHandler(true);
+        }
       };
 
       this.ws.onmessage = (event) => {
@@ -42,13 +51,17 @@ export class DaemonBridge {
             }
           }
         } catch (err) {
-          console.warn('[ListenTogether] Malformed daemon message:', err);
+          console.warn('[Listra] Malformed daemon message:', err);
         }
       };
 
       this.ws.onclose = () => {
+        const wasConnected = this.isConnected;
         this.isConnected = false;
         this.ws = null;
+        if (wasConnected && this.onStatusChangeHandler) {
+          this.onStatusChangeHandler(false);
+        }
         this.scheduleReconnect();
       };
 

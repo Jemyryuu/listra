@@ -1,10 +1,10 @@
 {
-  "name": "listen-together-extension",
+  "name": "listra-extension",
   "version": "1.0.0",
-  "description": "Spicetify extension for Listen Together with Discord RPC",
-  "main": "dist/listen-together.js",
+  "description": "Spicetify extension for Listra with Discord RPC",
+  "main": "dist/listra.js",
   "scripts": {
-    "build": "esbuild src/app.tsx --bundle --outfile=dist/listen-together.js --format=iife --target=es2022",
+    "build": "esbuild src/app.tsx --bundle --outfile=dist/listra.js --format=iife --target=es2022",
     "watch": "npm run build -- --watch",
     "apply": "npm run build && node scripts/install.js"
   },

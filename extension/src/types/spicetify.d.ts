@@ -98,9 +98,9 @@ declare namespace Spicetify {
       addToQueue?: (tracks: Array<{ uri: string }>) => Promise<any>;
       [key: string]: any;
     };
-    const UserAPI?: {
+    const UserAPI: {
       getUser?: () => Promise<{ displayName?: string; images?: Array<{ url: string }> }>;
-    };
+    } | undefined;
   }
 
   function showNotification(text: string, isError?: boolean, timeout?: number): void;

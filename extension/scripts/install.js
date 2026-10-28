@@ -9,8 +9,8 @@ if (!localAppData) {
 }
 
 const spicetifyExtensionsDir = path.join(localAppData, 'spicetify', 'Extensions');
-const srcBundle = path.join(__dirname, '..', 'dist', 'listen-together.js');
-const destBundle = path.join(spicetifyExtensionsDir, 'listen-together.js');
+const srcBundle = path.join(__dirname, '..', 'dist', 'listra.js');
+const destBundle = path.join(spicetifyExtensionsDir, 'listra.js');
 
 if (!fs.existsSync(srcBundle)) {
   console.error(`Error: Bundle not found at ${srcBundle}. Run 'npm run build' first.`);
@@ -20,9 +20,19 @@ if (!fs.existsSync(srcBundle)) {
 fs.copyFileSync(srcBundle, destBundle);
 console.log(`Copied bundle to ${destBundle}`);
 
+// Delete legacy listen-together.js if present to ensure only Listra runs
+const legacyDestBundle = path.join(spicetifyExtensionsDir, 'listen-together.js');
+if (fs.existsSync(legacyDestBundle)) {
+  fs.unlinkSync(legacyDestBundle);
+  console.log(`Removed legacy extension bundle at ${legacyDestBundle}`);
+}
+
 try {
   console.log("Configuring Spicetify extension...");
-  execSync('spicetify config extensions listen-together.js', { stdio: 'inherit' });
+  try {
+    execSync('spicetify config extensions listen-together.js-', { stdio: 'inherit' });
+  } catch (e) {}
+  execSync('spicetify config extensions listra.js', { stdio: 'inherit' });
   console.log("Applying Spicetify changes...");
   execSync('spicetify apply', { stdio: 'inherit' });
   console.log("Spicetify successfully applied!");

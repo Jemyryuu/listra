@@ -66,7 +66,7 @@ export class PlayerAdapter {
         await Spicetify.Platform.PlayerAPI.addToQueue([{ uri }]);
       }
     } catch (err) {
-      console.warn('[ListenTogether] Failed to prefetch track into queue:', err);
+      console.warn('[Listra] Failed to prefetch track into queue:', err);
     }
   }
 

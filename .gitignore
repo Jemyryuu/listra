@@ -4,7 +4,10 @@ package-lock.json
 
 # Build outputs
 dist/
-!extension/dist/listen-together.js
+!extension/dist/
+!extension/dist/listra.js
+!daemon/dist/
+!daemon/dist/daemon.js
 *.exe
 
 # OS & Logs
