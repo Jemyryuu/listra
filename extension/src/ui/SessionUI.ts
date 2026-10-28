@@ -117,14 +117,14 @@ export class SessionUI {
         <div style="font-size: 13px; color: #b3b3b3; line-height: 1.5;">
           ${
             this.isHost
-              ? '🎮 <b>Discord RPC is active.</b> Friends can click <i>"Listen Together"</i> on your Discord profile to join automatically!'
-              : '🎧 You are synchronized to the host. Any track changes or pauses will sync automatically.'
+              ? '<b>Discord RPC is active.</b> Friends can click <i>"Listen Together"</i> on your Discord profile to join automatically.'
+              : 'You are synchronized to the host. Any track changes or pauses will sync automatically.'
           }
         </div>
 
         <div style="display: flex; gap: 10px; margin-top: 8px;">
           <button id="lt-copy-link-btn" style="flex: 1; background: #282828; border: 1px solid #3e3e3e; color: #fff; padding: 12px; border-radius: 24px; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s;">
-            🔗 Copy Join Link
+            Copy Join Link
           </button>
           <button id="lt-leave-btn" style="flex: 1; background: #e91429; border: none; color: #fff; padding: 12px; border-radius: 24px; font-weight: 700; font-size: 14px; cursor: pointer; transition: 0.2s;">
             Leave Party
@@ -145,7 +145,7 @@ export class SessionUI {
         const link = `https://listen-together.pages.dev/join?room=${this.currentRoomId}`;
         navigator.clipboard.writeText(link);
         copyLinkBtn.innerText = 'Link Copied!';
-        setTimeout(() => (copyLinkBtn.innerText = '🔗 Copy Join Link'), 2000);
+        setTimeout(() => (copyLinkBtn.innerText = 'Copy Join Link'), 2000);
       };
 
       const leaveBtn = container.querySelector('#lt-leave-btn') as HTMLButtonElement;
@@ -216,7 +216,7 @@ export class SessionUI {
     }
 
     Spicetify.PopupModal.display({
-      title: '🎧 Listen Together',
+      title: 'Listen Together',
       content: container,
       isLarge: false,
     });
