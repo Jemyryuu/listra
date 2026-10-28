@@ -10,6 +10,9 @@ dist/
 !daemon/dist/daemon.js
 *.exe
 
+# Agent & AI skills
+.agents/skills/
+
 # OS & Logs
 *.log
 .DS_Store
