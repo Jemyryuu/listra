@@ -4,6 +4,7 @@ package-lock.json
 
 # Build outputs
 dist/
+!extension/dist/listen-together.js
 *.exe
 
 # OS & Logs
