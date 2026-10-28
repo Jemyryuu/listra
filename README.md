@@ -1,108 +1,91 @@
-# 🎧 Listen Together (Spotify + Discord RPC)
+# Listen Together (Spotify and Discord RPC)
 
-Listen Together is a Spicetify extension and companion daemon that synchronizes Spotify music playback across friends in real time, triggered directly via a **Discord Rich Presence (RPC) button**.
+Listen Together synchronizes Spotify playback between friends in real time. It pairs a Spicetify extension with a background companion service to control playback and display a join button on your Discord profile.
 
----
+## Features
 
-## 🌟 Key Features
+- Broadcasts a clickable button on your Discord profile using Discord Rich Presence.
+- Syncs playback directly over peer-to-peer WebRTC UDP data channels.
+- Estimates clock offsets with an SNTP algorithm to schedule play and seek actions at a shared target timestamp.
+- Corrects audio drift between sound cards without causing skips or audible pops.
+- Works on desktop Spotify free and premium tiers because playback controls run inside the client.
+- Keeps playing during Discord voice calls without muting after 30 seconds.
 
-* **Discord Rich Presence Button:** Broadcasts an interactive `[🎧 Listen Together]` button on your Discord profile.
-* **Low-Latency Playback Sync:** Uses WebRTC DataChannels (UDP) and virtual clock synchronization (SNTP algorithm with lowest-RTT filtering).
-* **Future Execution Scheduling:** Pre-seeks and coordinates playback at a future microsecond timestamp $T_{\text{target}}$ to eliminate network transit lag and audio buffer delay.
-* **Drift Control:** Continuously corrects natural soundcard clock drift without audible popping or stuttering.
-* **No Spotify Premium Restriction for Listeners:** Controls desktop Spotify directly via Spicetify's client APIs, bypassing Discord's native Premium lock.
-* **No Voice Chat Pausing:** Talk freely in Discord voice channels without playback muting after 30 seconds.
-
----
-
-## 🏗️ Repository Architecture
+## Project Structure
 
 ```
 listen-together-plugin/
 ├── shared/
-│   └── protocol.ts           # Shared message contracts (Version 1)
+│   └── protocol.ts           # Message schemas for IPC and WebRTC
 ├── extension/                 # Spicetify client extension
 │   ├── src/
-│   │   ├── app.tsx            # Main lifecycle & room coordinator
-│   │   ├── player/            # PlayerAdapter (Spicetify.Player abstraction)
-│   │   ├── sync/              # ClockSync, Scheduler, DriftController, Engines
-│   │   ├── net/               # PeerTransport (WebRTC) & DaemonBridge (WS)
-│   │   └── ui/                # Playbar button & session modal
-│   └── scripts/install.js     # Automatic bundle installer & Spicetify applier
+│   │   ├── app.tsx            # Main lifecycle and session coordinator
+│   │   ├── player/            # Wrapper for Spicetify player controls
+│   │   ├── sync/              # Clock sync, drift controller, and action scheduler
+│   │   ├── net/               # WebRTC peer transport and daemon bridge
+│   │   └── ui/                # Topbar button and modal interface
+│   └── scripts/install.js     # Builds and applies extension to local Spotify
 ├── daemon/                    # Background companion daemon
 │   ├── src/
-│   │   ├── index.js           # Local HTTP / WebSocket server (127.0.0.1:8989)
-│   │   └── discordRpc.js      # Discord Named Pipe (\\.\pipe\discord-ipc-0) IPC client
-│   └── scripts/register-protocol.js # Registers listentogether:// URL scheme in HKCU
+│   │   ├── index.js           # Local HTTP and WebSocket server on 127.0.0.1:8989
+│   │   └── discordRpc.js      # Discord IPC pipe client (\\.\pipe\discord-ipc-0)
+│   └── scripts/register-protocol.js # Registers listentogether:// URL scheme in Windows registry
 ├── web/
-│   └── index.html             # Static landing page for Discord RPC button redirect
+│   └── index.html             # Landing page for Discord button redirects
 └── signaling/
-    ├── src/index.ts           # Cloudflare Worker + Durable Objects WebRTC signaling
-    └── wrangler.toml          # Worker configuration
+    ├── src/index.ts           # Cloudflare Worker for WebRTC signaling
+    └── wrangler.toml          # Worker deployment configuration
 ```
 
----
+## Quick Start
 
-## 🚀 Quick Start
-
-### For Friends (1-Line Easy Install)
-Your friends do **not** need to clone this repo or install Node.js. They just open PowerShell and paste this one command:
+### For Friends (One-Line Installer)
+Friends who only want to listen do not need Git, Node.js, or build tools. Run this command in Windows PowerShell:
 
 ```powershell
 irm https://raw.githubusercontent.com/Jemyryuu/listra/main/install.ps1 | iex
 ```
 
-This will automatically:
-1. Install Spicetify CLI (if they don't have it).
-2. Download the pre-compiled `listen-together.js` directly into their Spicetify directory.
-3. Register the Windows protocol handler for Discord links.
-4. Apply the extension to their Spotify.
+The script will:
+1. Install Spicetify CLI if it is not already on your system.
+2. Download the pre-built `listen-together.js` bundle into your Spicetify extensions folder.
+3. Register the `listentogether://` protocol in your user registry.
+4. Run `spicetify apply` to enable the extension in Spotify.
 
----
+Restart Spotify after installation completes.
 
-### For Developers & Hosts (Running the Daemon)
+### For Hosts (Running the Daemon)
 
-### 1. Register the Windows Protocol Handler
-Registers the custom `listentogether://` scheme in Windows `HKCU` registry (no administrator privileges required):
-```powershell
-npm run register:protocol
-```
+1. Register the URL protocol handler:
+   ```powershell
+   npm run register:protocol
+   ```
+2. Build and apply the Spicetify extension:
+   ```powershell
+   npm run apply:extension
+   ```
+3. Start the companion daemon:
+   ```powershell
+   npm run start:daemon
+   ```
 
-### 2. Build & Apply the Spicetify Extension
-Ensure Spotify is closed when applying changes so Spicetify can inject the bundle:
-```powershell
-npm run apply:extension
-```
-*(Alternatively, copy `extension/dist/listen-together.js` into `%localappdata%\spicetify\Extensions\` and run `spicetify apply`)*.
+The daemon connects to your local Discord client through `\\.\pipe\discord-ipc-0` and listens for browser redirects on `http://127.0.0.1:8989`.
 
-### 3. Start the Companion Daemon
-```powershell
-npm run start:daemon
-```
-The daemon will:
-1. Connect to Discord's local IPC pipe (`\\.\pipe\discord-ipc-0`).
-2. Listen on `http://127.0.0.1:8989` for local WebSocket and browser loopback signals.
+## Cloudflare Deployment
 
----
-
-## 🌐 Cloudflare Deployment (Free Tier)
-
-### 1. Deploy the Static Join Page (Cloudflare Pages)
+Deploy the static join page to Cloudflare Pages:
 ```powershell
 npm run deploy:web
 ```
-Or host the `web/index.html` file on any static host (GitHub Pages, Vercel, Netlify).
 
-### 2. Deploy the Signaling Worker (Cloudflare Workers)
+Deploy the WebRTC signaling worker:
 ```powershell
 npm run deploy:signaling
 ```
 
----
+## Configuration
 
-## ⚙️ Configuration & Environment Variables
-
-You can customize the Discord Application and landing page by setting environment variables before starting the daemon:
+Set environment variables before starting the daemon to use a custom Discord Application ID or custom landing page domain:
 
 ```powershell
 $env:DISCORD_CLIENT_ID = "YOUR_DISCORD_APP_ID"

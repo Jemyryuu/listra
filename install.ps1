@@ -1,11 +1,11 @@
 # =========================================================
-# Listen Together - 1-Line Installer for Windows
+# Listen Together - Installer for Windows
 # =========================================================
 
 $ErrorActionPreference = 'Stop'
 
 Write-Host "==========================================" -ForegroundColor Green
-Write-Host " 🎧 Installing Listen Together for Spotify" -ForegroundColor Green
+Write-Host " Installing Listen Together for Spotify" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 
 # 1. Check if Spicetify is installed
@@ -48,6 +48,6 @@ spicetify config extensions listen-together.js
 spicetify apply
 
 Write-Host "`n=================================================" -ForegroundColor Green
-Write-Host " SUCCESS: Listen Together has been installed! 🎉" -ForegroundColor Green
+Write-Host " SUCCESS: Listen Together has been installed." -ForegroundColor Green
 Write-Host "=================================================" -ForegroundColor Green
 Write-Host "Restart Spotify to start listening together with friends." -ForegroundColor White
