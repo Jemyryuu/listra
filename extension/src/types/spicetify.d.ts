@@ -43,12 +43,31 @@ declare namespace Spicetify {
     function removeEventListener(event: string, callback: (event?: any) => void): void;
   }
 
+  namespace Topbar {
+    class Button {
+      constructor(
+        label: string,
+        icon: string,
+        onClick: (self: Button) => void,
+        disabled?: boolean,
+        isRight?: boolean
+      );
+      element: HTMLElement;
+      active: boolean;
+      disabled: boolean;
+      icon: string;
+      label: string;
+      tippy?: any;
+    }
+  }
+
   namespace Playbar {
     class Button {
       constructor(
         label: string,
         icon: string,
         onClick: (self: Button) => void,
+        registerOnCreate?: boolean,
         disabled?: boolean,
         active?: boolean
       );
@@ -61,6 +80,16 @@ declare namespace Spicetify {
       register(): void;
       deregister(): void;
     }
+  }
+
+  namespace PopupModal {
+    interface Content {
+      title: string;
+      content: string | Element;
+      isLarge?: boolean;
+    }
+    function display(content: Content): void;
+    function hide(): void;
   }
 
   namespace Platform {
