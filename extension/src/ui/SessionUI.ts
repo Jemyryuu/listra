@@ -191,8 +191,8 @@ export class SessionUI {
 
       const hostBtn = container.querySelector('#lt-host-btn') as HTMLButtonElement;
       hostBtn.onclick = () => {
-        Spicetify.PopupModal.hide();
         this.actions.onStartHost();
+        this.openModal();
       };
 
       const joinInput = container.querySelector('#lt-join-input') as HTMLInputElement;
@@ -201,8 +201,8 @@ export class SessionUI {
       const triggerJoin = () => {
         const val = joinInput.value.trim().toUpperCase();
         if (val.length === 6) {
-          Spicetify.PopupModal.hide();
           this.actions.onJoin(val);
+          this.openModal();
         } else {
           joinInput.style.borderColor = '#e91429';
           Spicetify.showNotification('Room code must be exactly 6 characters.', true);
